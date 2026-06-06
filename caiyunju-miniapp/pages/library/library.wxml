@@ -1,0 +1,90 @@
+<!-- pages/library/library.wxml · v2.0 财运簿 -->
+<view class="lib-page">
+
+  <!-- 品牌栏 -->
+  <view class="lib-brand">
+    <view class="compass-mini"><view class="taiji-mini"></view></view>
+    <view class="brand-text">
+      <text class="brand-cn">财 运 簿</text>
+      <text class="brand-en">FORTUNE LEDGER</text>
+    </view>
+  </view>
+
+  <!-- 已购报告区 -->
+  <view class="lib-section">
+    <view class="lib-h">
+      <view class="lib-h-bar"></view>
+      <text class="lib-h-name">已购报告</text>
+    </view>
+
+    <!-- 已购买状态 -->
+    <block wx:if="{{purchased}}">
+      <view class="lib-card lib-card-paid" bindtap="onTapReportCard">
+        <text class="lib-paid-tag">PRO</text>
+        <view class="lib-paid-body">
+          <text class="lib-paid-title">大师团 PRO 观点</text>
+          <text class="lib-paid-desc">{{todayGrade}} · {{todayStick}} · 已解锁</text>
+        </view>
+        <text class="lib-arrow">›</text>
+      </view>
+    </block>
+
+    <!-- 未购买空状态 -->
+    <block wx:else>
+      <view class="lib-empty" bindtap="onTapEmpty">
+        <text class="lib-empty-icon">·</text>
+        <text class="lib-empty-text">还未解锁报告 · 点击进入今日签</text>
+      </view>
+    </block>
+
+    <!-- 统计行 -->
+    <view class="lib-stat-row">
+      <view class="lib-stat-cell">
+        <text class="lib-stat-num">{{sectorUsedText}}</text>
+        <text class="lib-stat-key">板块详批 · 今日额度</text>
+      </view>
+      <view class="lib-stat-cell">
+        <text class="lib-stat-num">{{mastersStatusText}}</text>
+        <text class="lib-stat-key">大师团报告</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 历史签区 -->
+  <view class="lib-section">
+    <view class="lib-h">
+      <view class="lib-h-bar"></view>
+      <text class="lib-h-name">历史签</text>
+      <text class="lib-h-hint">最近 5 日</text>
+    </view>
+
+    <!-- 空状态 -->
+    <block wx:if="{{isEmpty}}">
+      <view class="lib-empty" bindtap="onTapEmpty">
+        <text class="lib-empty-text">暂无签运记录 · 求签后自动记录</text>
+      </view>
+    </block>
+
+    <!-- 历史列表 -->
+    <block wx:else>
+      <view
+        class="lib-history-row sign-{{item.gradeCls}}"
+        wx:for="{{historyList}}"
+        wx:key="index"
+        data-idx="{{index}}"
+        bindtap="onTapHistoryItem"
+      >
+        <text class="lib-h-date">{{item.date}}</text>
+        <view class="lib-h-mid">
+          <text class="lib-h-no">{{item.stickNo}}</text>
+          <text class="lib-h-action">{{item.action}}</text>
+        </view>
+        <text class="lib-h-grade lib-g-{{item.gradeCls}}">{{item.gradeLabel}}</text>
+      </view>
+    </block>
+  </view>
+
+  <!-- 底部提示 -->
+  <view class="lib-footer">· 历史数据保留 30 天 · 娱乐参考 ·</view>
+
+</view>

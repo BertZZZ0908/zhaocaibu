@@ -1,0 +1,180 @@
+<!-- pages/sign/sign.wxml · v2.3 求签页模板（像素级对齐 H5） -->
+<view class="sign-page">
+
+  <!-- ★ UX-fix-3：返回按钮常驻左上角（page 级 fixed），与右上角微信胶囊水平对齐 ★ -->
+  <view wx:if="{{revealed && sign}}" class="sign-back-btn" bindtap="onReshake">‹</view>
+
+  <!-- ====== 阶段1：摇签前（财神签筒视觉） ====== -->
+  <block wx:if="{{!revealed}}">
+    <image class="fortune-bg" src="/assets/bg-tube.jpg" mode="aspectFill" />
+
+    <view class="fortune-titlebar">
+      <view class="fortune-title-wrap">
+        <view class="fortune-title-deco left"></view>
+        <text class="fortune-title">财神签</text>
+        <view class="fortune-title-deco right"></view>
+      </view>
+      <text class="fortune-subtitle">每 日 一 签 · 财 运 指 引</text>
+    </view>
+
+    <text class="fortune-guide">诚 心 摇 签 · 财 运 自 有 安 排</text>
+
+    <view class="shake-copy-card">
+      <text>摇 一 摇 手 机</text>
+      <text>求 取 今 日 财 运 签</text>
+    </view>
+
+    <button class="fortune-shake-btn {{shaking ? 'shaking' : ''}}" bindtap="onShake" disabled="{{shaking}}">
+      <text class="shake-icon">财运+1</text>
+    </button>
+  </block>
+
+  <!-- ====== 阶段2：摇签后（签文+大师团） ====== -->
+  <block wx:if="{{revealed && sign}}">
+
+    <!-- ★ 财神签卡 ★ -->
+    <view class="sign-unified sign-{{sign.gradeCls}}" style="--gc:{{sign.gradeColor}};--ga:{{sign.accentColor}};--bgi:url('{{sign.bgImage}}');">
+      <!-- ★ S2：四角装饰已隐藏（对齐 H5 .sign-u-corner { display: none }） -->
+      <!-- 关闭按钮已迁移到 page 根级 .sign-back-btn（UX-fix-3）-->
+
+      <!-- 顶行：签号+日期 -->
+      <view class="sign-head">
+        <text class="sign-no">{{sign.stickNo}}</text>
+        <text class="sign-date">{{sign.date}}</text>
+      </view>
+
+      <!-- 等级大字 -->
+      <view class="sign-grade"><text class="sign-grade-text">{{sign.gradeLabel}}</text></view>
+
+      <!-- 操作建议条（★ S5：等级分色，背景色随 --ga 变化） -->
+      <view class="sign-action">{{sign.action}}</view>
+
+      <!-- ★ S6：分隔线已隐藏（对齐 H5 .sign-u-divider { display: none }） -->
+
+      <!-- 诗句「」+ 解签文字 -->
+      <view class="sign-poem">
+        <text class="poem-ancient">「{{sign.poemAncient[0]}}</text>
+        <text class="poem-ancient">　{{sign.poemAncient[1]}}」</text>
+        <text class="poem-modern">{{sign.poemModern[0]}}</text>
+        <text class="poem-modern">{{sign.poemModern[1]}}</text>
+      </view>
+
+      <!-- 市场数据（非周末显示） -->
+      <view wx:if="{{!sign.isWeekend}}" class="sign-market-data">
+        <view class="smd-row">
+          <text class="smd-tag">今日</text>
+          <text class="smd-val smd-trend">{{sign.trend}}</text>
+        </view>
+        <view class="smd-row smd-row-sub">
+          <text class="smd-label">主线</text>
+          <text class="smd-val smd-hl">{{sign.mainLine}}</text>
+        </view>
+      </view>
+
+      <!-- 底部提示 -->
+      <view class="sign-footer">
+        <text wx:if="{{sign.isWeekend}}">周末愉快 · 下周一更新</text>
+        <text wx:else>{{sign.trend}} · {{sign.mainLine}}</text>
+      </view>
+      </view>
+
+    <!-- ★ 大师团圆桌 ★ -->
+    <view class="card masters-section">
+      <view class="card-title">· 大 师 团 圆 桌 ·</view>
+      <!-- ★ UX-fix-2：共识结论改为双行视觉强调（标签 + 主文案）★ -->
+      <view class="masters-consensus">
+        <text class="consensus-label">共 识 结 论</text>
+        <text class="consensus-text">{{sign.action}}</text>
+      </view>
+
+      <!-- ★ M8 修复：wx:for 移到 master-row（原来错放在 masters-list 上） -->
+      <view class="masters-list">
+        <view class="master-row" wx:for="{{masters}}" wx:key="id" data-idx="{{index}}" bindtap="onUnlockMaster">
+          <view class="master-head">
+            <view class="master-avatar" style="background:{{item.color}};box-shadow:0 0 24rpx {{item.color}}44;">{{item.initial}}</view>
+            <view class="master-meta">
+              <text class="master-name">{{item.name}}</text>
+              <text class="master-school">{{item.school}}</text>
+            </view>
+            <view class="master-verdict verdict-{{item.verdictCls}}">{{item.verdict}}</view>
+            <!-- ★ 锁定标记：与判词同行 -->
+            <view wx:if="{{item.isLocked}}" class="master-lock-tag">
+              <text class="lock-icon">🔒</text>
+              <text class="lock-label">PRO</text>
+            </view>
+          </view>
+          <text class="master-text">{{item.text}}</text>
+          <view wx:if="{{item.tactics}}" class="master-tactics">◆ 战术 · {{item.tactics}}</view>
+        </view>
+      </view>
+
+      <!-- 大师团 PRO CTA -->
+      <view class="masters-cta" bindtap="onUnlockAllMasters">
+        <view class="cta-badge">PRO</view>
+        <view class="cta-body">
+          <text class="cta-title">解 锁 全 部 大 师 观 点</text>
+          <text class="cta-desc">价值·周期·游资·量化·行为·散户 — 六路高手各给一套买卖逻辑，不和稀泥</text>
+        </view>
+        <text class="cta-arrow">›</text>
+      </view>
+    </view>
+
+    <!-- 免责声明 -->
+    <view class="disclaimer-bar">
+      <text class="disclaimer-text">本内容为文化娱乐参考，不构成任何投资建议。市场有风险，决策需谨慎。</text>
+    </view>
+
+  </block>
+
+  <!-- ====== 大师团购买弹窗 ====== -->
+  <view class="shop-modal" wx:if="{{showShopModal}}">
+    <view class="shop-mask" bindtap="onCloseShopModal"></view>
+    <view class="shop-card">
+      <!-- 顶栏 -->
+      <view class="shop-top">
+        <text class="shop-title">大 师 团</text>
+        <text class="shop-sub">{{shopBoughtCount}} / {{premiumMasters.length}} 已解锁</text>
+        <view class="shop-close" bindtap="onCloseShopModal">×</view>
+      </view>
+
+      <!-- 付费大师列表 -->
+      <view class="shop-list">
+        <view class="shop-row {{item.isBought ? 'shop-row-bought' : ''}}" wx:for="{{premiumMasters}}" wx:key="id" data-mid="{{item.id}}" bindtap="{{item.isBought ? '' : 'onShopBuyMaster'}}">
+          <view class="shop-row-left">
+            <view class="shop-row-avatar" style="background:{{item.isBought ? item.color : '#2a2a45'}}">{{item.isBought ? item.initial : '🔒'}}</view>
+            <view class="shop-row-info">
+              <text class="shop-row-name">{{item.school}}·{{item.name}}</text>
+              <text class="shop-row-feature">{{item.feature}}</text>
+            </view>
+          </view>
+          <view class="shop-row-right">
+            <block wx:if="{{item.isBought}}">
+              <text class="shop-row-verdict v-{{item.verdictCls}}">{{item.verdict}}</text>
+              <text class="shop-row-check">✓</text>
+            </block>
+            <block wx:else>
+              <view class="shop-buy-btn" data-mid="{{item.id}}">¥{{item.priceSingle}}<text class="shop-buy-small">/位</text></view>
+            </block>
+          </view>
+        </view>
+      </view>
+
+      <!-- 底部套餐 -->
+      <view class="shop-bundle" wx:if="{{shopBoughtCount < premiumMasters.length}}">
+        <view class="shop-bundle-left">
+          <text class="shop-bundle-title">全 部 解 锁</text>
+          <text class="shop-bundle-desc">{{premiumMasters.length}} 位大师 · 每日自动推送完整观点</text>
+        </view>
+        <view class="shop-bundle-right">
+          <view class="shop-bundle-btn" data-type="single" bindtap="onShopBuyBundle">¥10<text class="shop-btn-small">单次</text></view>
+          <view class="shop-bundle-btn hot" data-type="month" bindtap="onShopBuyBundle">¥29<text class="shop-btn-small">/月</text></view>
+        </view>
+      </view>
+
+      <view class="shop-all-done" wx:if="{{shopBoughtCount >= premiumMasters.length}}">★ 全部解锁完成 ★</view>
+
+      <view class="shop-foot">娱乐参考 · 不构成投资建议 · Demo模式不会真实扣款</view>
+    </view>
+  </view>
+
+</view>

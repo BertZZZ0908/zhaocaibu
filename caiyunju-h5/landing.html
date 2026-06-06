@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>招财簿 — 个人财富记录与生活工具</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #0A0E17;
+    color: #E8E4DC;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow-x: hidden;
+  }
+  .page {
+    width: 100%;
+    max-width: 420px;
+    padding: 40px 24px;
+    text-align: center;
+  }
+  /* 顶部装饰 */
+  .ornament {
+    width: 60px;
+    height: 60px;
+    margin: 0 auto 20px;
+    border: 1.5px solid rgba(212,168,83,0.35);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+  .ornament::before {
+    content: '簿';
+    font-size: 22px;
+    color: #D4A853;
+    font-weight: 700;
+    letter-spacing: 0;
+  }
+  .ornament::after {
+    content: '';
+    position: absolute;
+    inset: -6px;
+    border: 1px solid rgba(212,168,83,0.12);
+    border-radius: 50%;
+  }
+  /* 标题 */
+  h1 {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: 8px;
+    color: #D4A853;
+    margin-bottom: 8px;
+  }
+  .subtitle {
+    font-size: 13px;
+    color: rgba(232,228,220,0.45);
+    letter-spacing: 2px;
+    margin-bottom: 36px;
+  }
+  /* 分隔线 */
+  .divider {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 32px;
+  }
+  .divider-line {
+    width: 40px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(212,168,83,0.25), transparent);
+  }
+  .divider-dot {
+    width: 5px;
+    height: 5px;
+    background: rgba(212,168,83,0.3);
+    border-radius: 50%;
+  }
+  /* 功能列表 */
+  .features {
+    list-style: none;
+    text-align: left;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(212,168,83,0.1);
+    border-radius: 14px;
+    padding: 24px 20px;
+    margin-bottom: 28px;
+  }
+  .features li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    font-size: 14px;
+    color: rgba(232,228,220,0.75);
+    letter-spacing: 0.5px;
+    line-height: 1.5;
+  }
+  .features li + li {
+    border-top: 1px solid rgba(212,168,83,0.07);
+  }
+  .features li .tag {
+    flex-shrink: 0;
+    width: 26px;
+    height: 26px;
+    background: rgba(212,168,83,0.08);
+    border: 1px solid rgba(212,168,83,0.18);
+    border-radius: 7px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    color: #D4A853;
+    font-weight: 600;
+  }
+  /* 状态 */
+  .status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(107,168,139,0.08);
+    border: 1px solid rgba(107,168,139,0.2);
+    border-radius: 20px;
+    padding: 8px 18px;
+    font-size: 12.5px;
+    color: rgba(107,168,139,0.85);
+    letter-spacing: 1px;
+  }
+  .status-dot {
+    width: 7px;
+    height: 7px;
+    background: #6BA88B;
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.9); }
+  }
+  /* 底部 */
+  footer {
+    margin-top: 36px;
+    font-size: 11px;
+    color: rgba(232,228,220,0.2);
+    letter-spacing: 1px;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="ornament"></div>
+  <h1>招 财 簿</h1>
+  <p class="subtitle">个人财富记录与生活工具</p>
+
+  <div class="divider">
+    <span class="divider-line"></span>
+    <span class="divider-dot"></span>
+    <span class="divider-line"></span>
+  </div>
+
+  <ul class="features">
+    <li><span class="tag">壹</span>基于传统历法文化的生辰八字排盘工具</li>
+    <li><span class="tag">贰</span>每日财运指数查询与财富数据记录</li>
+    <li><span class="tag">叁</span>个人财务数据统计与分析功能</li>
+  </ul>
+
+  <div class="status">
+    <span class="status-dot"></span>
+    产品即将上线
+  </div>
+
+  <footer>&copy; 2026 招财簿 · zhaocaibu.cn</footer>
+</div>
+</body>
+</html>

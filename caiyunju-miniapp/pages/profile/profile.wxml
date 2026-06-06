@@ -1,0 +1,84 @@
+<!-- pages/profile/profile.wxml · v2.3 我的（对齐 H5 卡片分组布局） -->
+<view class="profile-page">
+
+  <!-- ★ 顶部：头像+信息+去排盘按钮（H5 风格金色实心按钮）★ -->
+  <view class="me-header">
+    <view class="me-avatar-ring">{{avatarChar || '·'}}</view>
+    <view class="me-info">
+      <text class="me-name">{{greeting || '未排盘'}}</text>
+      <text class="me-sub">{{hasBazi ? (bazi.dayGan ? ('日主 ' + bazi.dayGan + ' · ' + bazi.dayWuxing) : '') : '完成排盘后查看长线财运'}}</text>
+    </view>
+    <button class="me-btn-gold" bindtap="onGoBazi">{{goBaziText}}</button>
+  </view>
+
+  <!-- ★ 分组卡片 1：命盘服务 ★ -->
+  <view class="me-card">
+    <view class="me-card-title">
+      <text class="card-title-bar"></text>
+      <text class="card-title-text">命盘服务</text>
+    </view>
+    <view class="me-card-body">
+      <view class="me-item" bindtap="onGoBazi">
+        <view class="me-item-icon me-icon-ming">命</view>
+        <view class="me-item-main">
+          <text class="me-item-title">我的命盘</text>
+          <text class="me-item-desc">输入生辰 · 看 60 年财运长线</text>
+        </view>
+        <text class="me-item-arrow">›</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- ★ 分组卡片 2：订阅与商城 ★ -->
+  <view class="me-card">
+    <view class="me-card-title">
+      <text class="card-title-bar"></text>
+      <text class="card-title-text">订阅与商城</text>
+    </view>
+    <view class="me-card-body">
+
+      <!-- 大师观点 -->
+      <view class="me-item" bindtap="onBuyMasters">
+        <view class="me-item-icon me-icon-pro">PRO</view>
+        <view class="me-item-main">
+          <text class="me-item-title">大师观点</text>
+          <text class="me-item-desc">¥1.99/位 · ¥9.9/月全开</text>
+        </view>
+        <text class="me-item-arrow">›</text>
+      </view>
+
+      <!-- 开运商城 -->
+      <view class="me-item me-item-last" bindtap="onGoShop">
+        <view class="me-item-icon me-icon-shop">物</view>
+        <view class="me-item-main">
+          <text class="me-item-title">开运商城</text>
+          <text class="me-item-desc">命格定制 · 文化藏品</text>
+        </view>
+        <text class="me-item-arrow">›</text>
+      </view>
+
+    </view>
+  </view>
+
+  <!-- ★ 分组卡片 3：设置 ★ -->
+  <view class="me-card">
+    <view class="me-card-title">
+      <text class="card-title-bar"></text>
+      <text class="card-title-text">设置</text>
+    </view>
+    <view class="me-card-body">
+      <view class="me-item me-item-last" bindtap="onClearLocal">
+        <view class="me-item-icon me-icon-clear">清</view>
+        <view class="me-item-main">
+          <text class="me-item-title">清空本地数据</text>
+          <text class="me-item-desc">重置八字 / 已购 / 试用记录</text>
+        </view>
+        <text class="me-item-arrow">›</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- ★ 底部文案（对齐 H5）★ -->
+  <view class="me-footer">· v0.2 · 娱乐参考 不构成投资建议 ·</view>
+
+</view>

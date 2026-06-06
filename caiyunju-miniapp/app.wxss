@@ -1,0 +1,125 @@
+/* app.wxss · 招财簿 v2.0 全局样式
+ * 设计语言：深色金融风 / 金色强调 / 圆角卡片
+ * 色彩体系：#0A0E27 背景 / #D4A853 金色 / #1a1f3b 卡片背景 */
+
+/* ============ CSS 变量（Design Tokens）=========== */
+page {
+  --color-bg-primary: #0A0E27;
+  --color-bg-secondary: #111638;
+  --color-bg-tertiary: #1a1f3b;
+  --color-gold: #D4A853;
+  --color-gold-light: #E8C97A;
+  --color-gold-dark: #B8923F;
+  --color-text-primary: #E8E8EC;
+  --color-text-secondary: #9898A4;
+  --color-text-hint: #666670;
+  --color-success: #5CB85C;
+  --color-danger: #E74C3C;
+  --color-warning: #F0AD4E;
+  --color-info: #5BC0DE;
+  --color-border: rgba(212, 168, 83, 0.15);
+  --color-border-light: rgba(255, 255, 255, 0.06);
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+
+  /* 全局重置 */
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", sans-serif;
+  font-size: 28rpx;
+  line-height: 1.6;
+
+  /* ★ R1：全局顶部安全区变量（UI_RULES.md R1）
+   * navigationStyle: custom 时，页面从(0,0)渲染，必须手动避开状态栏+胶囊按钮。
+   * 120rpx ≈ 60px，兼容 iPhone SE(56px) ~ 14 Pro Max(99px) 的最小安全值 */
+  --safe-top: 120rpx;
+}
+
+/* ============ 工具类 ============ */
+.flex { display: flex; }
+.flex-col { display: flex; flex-direction: column; }
+.flex-row { display: flex; flex-direction: row; }
+.flex-center { display: flex; align-items: center; justify-content: center; }
+.flex-between { display: flex; align-items: center; justify-content: space-between; }
+.flex-1 { flex: 1; }
+.text-center { text-align: center; }
+.text-gold { color: var(--color-gold); }
+.text-muted { color: var(--color-text-secondary); }
+.text-hint { color: var(--color-text-hint); font-size: 22rpx; }
+
+/* 金色渐变文字 */
+.gold-text {
+  background: linear-gradient(180deg, var(--color-gold-light), var(--color-gold));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* 卡片容器 */
+.card {
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-md);
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+  border: 1px solid var(--color-border-light);
+}
+
+/* 按钮基础 */
+.btn {
+  border-radius: var(--radius-md);
+  font-size: 28rpx;
+  text-align: center;
+  padding: 18rpx 36rpx;
+  border: none;
+}
+.btn::after { display: none; } /* 去除小程序默认边框 */
+
+.btn-gold {
+  background: linear-gradient(135deg, var(--color-gold-dark), var(--color-gold));
+  color: #0A0E27;
+  font-weight: 500;
+}
+
+.btn-outline {
+  background: transparent;
+  color: var(--color-gold);
+  border: 1px solid var(--color-gold);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--color-text-secondary);
+}
+
+/* 分割线 */
+.divider {
+  height: 1px;
+  background: var(--color-border-light);
+  margin: 16rpx 0;
+}
+
+.gold-divider {
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--color-gold), transparent);
+  margin: 20rpx 0;
+}
+
+/* 安全区域适配（UI_RULES.md） */
+
+/* ★ 顶部安全区：所有页面容器必须加此 padding 或使用 .page-safe-top 类 ★ */
+.page-safe-top {
+  padding-top: var(--safe-top, 120rpx);
+  box-sizing: border-box;
+}
+
+/* 底部安全区：TabBar / iPhone Home Indicator 避让 */
+.safe-area-bottom {
+  padding-bottom: constant(safe-area-inset-bottom);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* 状态栏占位（已弃用，改用 --safe-top 变量） */
+.status-bar-placeholder {
+  height: var(--status-bar-height, 44px);
+}

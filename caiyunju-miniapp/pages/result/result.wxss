@@ -1,0 +1,14 @@
+/* pages/result/result.wxss · v2.1（★ UI_RULES.md 安全区适配预埋）
+
+   ⚠ 此页为占位文件，待 Phase-2 开发排盘结果页时补充完整样式。
+   ★ 已预埋 R2 安全区规则，开发时直接在此基础上扩展。 */
+
+/* ============ 页面容器（★ R2：顶部安全区） ============ */
+.result-page {
+  min-height: 100vh;
+  background-color: var(--color-bg-primary, #0A0E27);
+
+  /* ★ R2：避开状态栏 + 胶囊按钮 ★ */
+  padding-top: var(--safe-top, 120rpx);
+  box-sizing: border-box;
+}

@@ -1,0 +1,43 @@
+{
+  "pages": [
+    "pages/sign/sign",
+    "pages/library/library",
+    "pages/profile/profile",
+    "pages/input/input",
+    "pages/payment/payment"
+  ],
+  "tabBar": {
+    "color": "#888888",
+    "selectedColor": "#D4A853",
+    "backgroundColor": "#0A0E27",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/sign/sign",
+        "text": "求签",
+        "iconPath": "assets/tab-sign.png",
+        "selectedIconPath": "assets/tab-sign.png"
+      },
+      {
+        "pagePath": "pages/library/library",
+        "text": "财运簿",
+        "iconPath": "assets/tab-library.png",
+        "selectedIconPath": "assets/tab-library.png"
+      },
+      {
+        "pagePath": "pages/profile/profile",
+        "text": "我的",
+        "iconPath": "assets/tab-me.png",
+        "selectedIconPath": "assets/tab-me.png"
+      }
+    ]
+  },
+  "window": {
+    "navigationBarTitleText": "招财簿",
+    "navigationStyle": "custom",
+    "backgroundColor": "#0A0E27",
+    "backgroundTextStyle": "light"
+  },
+  "sitemapLocation": "sitemap.json",
+  "style": "v2"
+}

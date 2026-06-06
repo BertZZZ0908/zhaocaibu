@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0A0E27">
+  <title>财运局 · 玄学财运解码器（验证版）</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles-pages.css">
+</head>
+<body>
+
+<!-- 手机外框容器 -->
+<div class="frame-wrap">
+  <div class="frame-phone">
+    <!-- 顶部状态栏 -->
+    <div class="status-bar">
+      <span class="status-time" id="statusTime">10:30</span>
+      <span class="status-title">财运局</span>
+      <span class="status-right">●●●</span>
+    </div>
+
+    <!-- 页面容器 -->
+    <div class="app" id="app">
+      <!-- 动态渲染 -->
+    </div>
+
+    <!-- 全局底部 Tab -->
+    <nav class="global-tabbar" id="globalTabbar">
+      <div class="g-tab" data-route="#/sign">
+        <span class="g-tab-icon ic-sign"></span>
+        <span class="g-tab-label">求签</span>
+      </div>
+      <div class="g-tab" data-route="#/library">
+        <span class="g-tab-icon ic-library"></span>
+        <span class="g-tab-label">财运簿</span>
+      </div>
+      <div class="g-tab" data-route="#/me">
+        <span class="g-tab-icon ic-me"></span>
+        <span class="g-tab-label">我的</span>
+      </div>
+    </nav>
+
+    <!-- 底部 Home 指示条 -->
+    <div class="home-indicator"></div>
+  </div>
+
+  <!-- 侧栏调试工具 -->
+  <aside class="dev-sidebar" id="devSidebar">
+    <div class="dev-title">
+      <span class="dev-dot"></span>
+      验证工具
+    </div>
+
+    <div class="dev-section">
+      <div class="dev-label">快速跳转页面</div>
+      <div class="dev-btns">
+        <button class="dev-btn" data-route="#/sign">每日签</button>
+        <button class="dev-btn" data-route="#/sector">板块详批</button>
+        <button class="dev-btn" data-route="#/library">财运簿</button>
+        <button class="dev-btn" data-route="#/me">我的</button>
+        <button class="dev-btn" data-route="#/input">输入生辰</button>
+        <button class="dev-btn" data-route="#/result">命盘</button>
+      </div>
+    </div>
+
+    <div class="dev-section">
+      <div class="dev-label">切换签等级</div>
+      <div class="dev-btns">
+        <button class="dev-btn" data-sign="0">上吉</button>
+        <button class="dev-btn" data-sign="1">中吉</button>
+        <button class="dev-btn" data-sign="2">下平</button>
+        <button class="dev-btn" data-sign="3">大吉</button>
+      </div>
+    </div>
+
+    <div class="dev-section">
+      <div class="dev-label">一键塞测试八字</div>
+      <div class="dev-btns">
+        <button class="dev-btn" data-sample="A">样本 A 丁火</button>
+        <button class="dev-btn" data-sample="B">样本 B 庚金</button>
+        <button class="dev-btn" data-sample="C">样本 C 癸水</button>
+        <button class="dev-btn" data-sample="D">样本 D 甲木</button>
+      </div>
+    </div>
+
+    <div class="dev-section">
+      <div class="dev-label">订单状态</div>
+      <div class="dev-btns">
+        <button class="dev-btn dev-btn-sm" id="devUnlockAll">全部解锁</button>
+        <button class="dev-btn dev-btn-sm" id="devLockAll">全部上锁</button>
+        <button class="dev-btn dev-btn-sm" id="devClearAll">清空数据</button>
+      </div>
+    </div>
+
+    <div class="dev-section">
+      <div class="dev-label">当前状态</div>
+      <pre class="dev-status" id="devStatus">—— 空 ——</pre>
+    </div>
+
+    <div class="dev-footer">
+      <div>财运局 · H5 验证版 v0.1</div>
+      <div>Reload: Cmd/Ctrl + R</div>
+    </div>
+  </aside>
+</div>
+
+<!-- 气泡 Toast -->
+<div id="toast" class="toast"></div>
+
+<script src="bazi.js"></script>
+<script src="marketSign.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

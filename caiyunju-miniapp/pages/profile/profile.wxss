@@ -1,0 +1,175 @@
+/* pages/profile/profile.wxss · v2.3 我的样式（对齐 H5 卡片分组布局 + UI_RULES.md 安全区） */
+
+/* ============ 页面容器（★ R2：顶部安全区） ============ */
+.profile-page {
+  min-height: 100vh;
+  background-color: var(--color-bg-primary, #0A0E27);
+
+  /* ★ R2：避开状态栏 + 胶囊按钮 ★ */
+  padding-top: var(--safe-top, 120rpx);
+  box-sizing: border-box;
+}
+
+/* ============ 头部：头像+信息+金色按钮 ============ */
+.me-header {
+  display: flex;
+  align-items: center;
+  padding: 40rpx 32rpx 36rpx;
+  gap: 24rpx;
+}
+.me-avatar-ring {
+  width: 96rpx; height: 96rpx;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #D4A853, #B8923F);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 36rpx; color: #0A0E27; font-weight: 700;
+  flex-shrink: 0;
+  box-shadow: 0 4rpx 16rpx rgba(212,168,83,0.25);
+}
+.me-info { flex: 1; min-width: 0; }
+.me-name {
+  display: block;
+  font-size: 32rpx;
+  color: var(--color-text-primary);
+  font-weight: 600;
+  letter-spacing: 2rpx;
+}
+.me-sub {
+  display: block;
+  font-size: 22rpx;
+  color: var(--color-text-hint);
+  margin-top: 8rpx;
+}
+
+/* ★ 金色实心按钮（对齐 H5）★ */
+.me-btn-gold {
+  font-size: 26rpx;
+  color: #0A0E27;
+  background: linear-gradient(135deg, #D4A853, #B8923F);
+  border: none;
+  border-radius: 28rpx;
+  padding: 14rpx 36rpx;
+  font-weight: 600;
+  letter-spacing: 2rpx;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.me-btn-gold::after { display: none; }
+
+/* ============ 分组卡片（对齐 H5） ============ */
+.me-card {
+  margin: 0 24rpx 24rpx;
+  background: var(--color-bg-secondary, #111638);
+  border: 1px solid rgba(212,168,83,0.12);
+  border-radius: var(--radius-md, 16rpx);
+  overflow: hidden;
+}
+
+/* 卡片标题：金色竖线 + 文字 */
+.me-card-title {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  padding: 24rpx 24rpx 16rpx;
+}
+.card-title-bar {
+  width: 4rpx;
+  height: 28rpx;
+  background: linear-gradient(180deg, #D4A853, #B8923F);
+  border-radius: 2rpx;
+  flex-shrink: 0;
+}
+.card-title-text {
+  font-size: 26rpx;
+  color: var(--color-gold, #D4A853);
+  font-weight: 600;
+  letter-spacing: 3rpx;
+}
+
+/* 卡片内容区 */
+.me-card-body {
+  padding: 0 24rpx 8rpx;
+}
+
+/* ============ 列表项（对齐 H5） ============ */
+.me-item {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  padding: 24rpx 0;
+  border-bottom: 1px solid rgba(212,168,83,0.08);
+}
+.me-item-last {
+  border-bottom: none;
+}
+
+/* 图标：圆形背景 */
+.me-item-icon {
+  width: 64rpx; height: 64rpx;
+  border-radius: 16rpx;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 26rpx;
+  font-weight: 700;
+  flex-shrink: 0;
+  letter-spacing: 1rpx;
+}
+.me-icon-ming {
+  background: linear-gradient(135deg, rgba(212,168,83,0.2), rgba(184,146,63,0.15));
+  color: #D4A853;
+  border: 1px solid rgba(212,168,83,0.25);
+}
+.me-icon-pro {
+  background: linear-gradient(135deg, rgba(212,168,83,0.25), rgba(184,146,63,0.2));
+  color: #D4A853;
+  border: 1px solid rgba(212,168,83,0.35);
+  font-size: 20rpx;
+  letter-spacing: 0;
+}
+.me-icon-shop {
+  background: linear-gradient(135deg, rgba(168,184,154,0.2), rgba(154,170,140,0.15));
+  color: #A8B89A;
+  border: 1px solid rgba(168,184,154,0.25);
+}
+.me-icon-clear {
+  background: linear-gradient(135deg, rgba(180,140,140,0.2), rgba(160,120,120,0.15));
+  color: #B08C8C;
+  border: 1px solid rgba(180,140,140,0.25);
+}
+
+/* 主内容区 */
+.me-item-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+}
+.me-item-title {
+  font-size: 30rpx;
+  color: var(--color-text-primary);
+  font-weight: 500;
+  letter-spacing: 1rpx;
+}
+.me-item-desc {
+  font-size: 22rpx;
+  color: var(--color-text-hint);
+}
+
+/* 右侧箭头 */
+.me-item-arrow {
+  font-size: 32rpx;
+  color: var(--color-text-hint);
+  flex-shrink: 0;
+  padding-left: 8rpx;
+}
+
+/* ============ 底部文案（对齐 H5） ============ */
+.me-footer {
+  text-align: center;
+  font-size: 20rpx;
+  color: var(--color-text-hint);
+  padding-top: 32rpx;
+  padding-bottom: calc(32rpx + 100rpx);  /* ★ R5：TabBar 避让 */
+  letter-spacing: 2rpx;
+  opacity: 0.7;
+}

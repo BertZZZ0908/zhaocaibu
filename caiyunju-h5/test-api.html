@@ -1,0 +1,48 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>腾讯接口自测</title>
+<style>body{background:#1a1a2e;color:#e0e0e0;font-family:monospace;padding:20px}
+.ok{color:#4ade80}.err{color:#f87171}.warn{color:#fbbf24}pre{background:#0d1117;padding:12px;border-radius:6px;margin:6px 0}</style>
+</head><body>
+<h2>🔌 腾讯财经 JSONP 自测（v3.1 同款逻辑）</h2>
+<div id="log"></div>
+<script>
+var L=function(m,c){var d=document.createElement('div');d.className=c||'';d.innerHTML=m;document.getElementById('log').appendChild(d);};
+
+(function(){
+  var T=5000,P=100,done=false,timer,poller,scr;
+  function F(m){if(done)return;done=true;clearTimeout(timer);if(poller)clearInterval(poller);
+    try{if(scr&&scr.parentNode)scr.parentNode.removeChild(scr);}catch(e){}
+    L('❌ <span class="err">'+m+'</span>');}
+  function O(raw){if(done)return;done=true;clearTimeout(timer);if(poller)clearInterval(poller);
+    try{if(scr&&scr.parentNode)scr.parentNode.removeChild(scr);}catch(e){}
+    var si=raw.indexOf('"')+1,ei=raw.lastIndexOf('"'),f=raw.substring(si,ei).split('~');
+    L('✅ <span class="ok">JSONP 成功! '+f.length+'个字段</span>');
+    L('<pre>{ name:"'+f[1]+'", price:'+f[3]+', chg%:'+f[32]+', chg:'+f[31]+', time:'+f[30]+' }</pre>');
+    L('<b class="ok">→ marketSign.js 应该能正常工作 ✓</b>');
+  }
+
+  // ★ 核心逻辑：先 delete，再注入，再等出现
+  try{delete window.v_sh000001;}catch(e){window.v_sh000001=undefined;}
+  L('[1] 已清除 window.v_sh000001 = ' + window.v_sh000001,'');
+
+  scr=document.createElement('script');
+  scr.src='https://qt.gtimg.cn/q=sh000001&_t='+Date.now();
+  L('[2] 注入 script: ' + scr.src,'warn');
+  scr.onerror=function(){F('script.onerror');};
+  document.head.appendChild(scr);
+
+  timer=setTimeout(function(){F(T+'ms总超时');},T);
+  var ticks=0;
+  poller=setInterval(function(){
+    ticks++;
+    var v=window.v_sh000001;
+    if(v!==undefined&&v!==null&&typeof v==='string'&&v.indexOf('~')>0){
+      L('[3] 第'+ticks+'轮检测到! 长度='+v.length,'ok');O(v);
+    }
+    if(ticks*P>T+800&&!done){
+      L('[✗] 轮询'+ticks+'次无结果','err');
+      L('    val type:'+typeof v+' val:'+String(v).substring(0,100),'err');
+      F('轮询超时');
+    }
+  },P);
+})();
+</script></body></html>

@@ -1,0 +1,949 @@
+/* pages/sign/sign.wxss · v2.3 求签页样式
+ * ★ 像素级对齐 H5 /#/sign 视觉风格（15 处差异全部修复）
+ *
+ * v2.3 变更：
+ *   S1: 移除签文卡边框
+ *   S2: 隐藏四角装饰
+ *   S3: 签号颜色改用等级色 var(--ga)
+ *   S4: 等级大字改用 var(--ga) + 加宽字距 + 加强发光
+ *   S5: 操作建议条改用等级色背景（大吉金/上吉橙/中吉灰绿/下下玫红）
+ *   S6: 隐藏分隔线
+ *   S7: 古诗颜色改用等级色 + 半透明
+ *   S8: 解签字色 #f5f1e8 + 字重 600 + 微妙 text-shadow
+ *   M1: 大师团外框加边框 + 顶部金色装饰线
+ *   M2: 标题改金色 + text-shadow + 移除左侧竖线
+ *   M3: 共识条加渐变背景框 + 边框
+ *   M4: 头像边框改善 + 颜色 glow（inline style）
+ *   M5: 判词改 Georgia 衬线 + 小圆角 + solid border
+ *   M6: 观点正文加左缩进（对齐头像右侧）
+ *   M7: 战术行加左缩进 + 加粗金色竖线
+ *   M8: 行分隔改虚线（独立卡片 → 连续列表）
+ *
+ * 色彩体系：深色金融风 #0c1230 / 金色 #D4A853 / 等级变色 var(--ga)
+ * 底图规格：1046×1920 竖长图（比 ≈ 0.545），内容集中中下部
+ */
+
+/* ============ 页面容器（★ R2：顶部安全区） ============ */
+.sign-page {
+  min-height: 100vh;
+  background-color: #0c1230;
+  position: relative;
+  overflow-x: hidden;
+
+  /* ★ R2：避开状态栏 + 胶囊按钮 ★ */
+  padding-top: var(--safe-top, 120rpx);
+  box-sizing: border-box;
+}
+
+/* ============ 阶段1：摇签前 ============ */
+
+.fortune-bg {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100vh;
+  z-index: 0;
+}
+
+.fortune-titlebar {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  padding-top: 80rpx;
+}
+.fortune-title-wrap { display: flex; align-items: center; justify-content: center; gap: 16rpx; }
+/* ★ 对齐 H5 .fortune-title-deco：装饰横线 + 菱形端点 ★ */
+.fortune-title-deco {
+  width: 60rpx; height: 2rpx;
+  background: #D4A853;
+  position: relative;
+  opacity: 0.55;
+}
+.fortune-title-deco::before {
+  content: "";
+  position: absolute;
+  top: -5rpx;
+  width: 12rpx; height: 12rpx;
+  border: 1px solid #D4A853;
+  transform: rotate(45deg);
+}
+.fortune-title-deco.left::before  { right: -6rpx; }
+.fortune-title-deco.right::before { left:  -6rpx; }
+
+/* ★ 对齐 H5 .fortune-title：衬线体 + 粗体 + text-shadow ★ */
+.fortune-title {
+  font-family: "STSong", "SimSun", "Noto Serif SC", serif;
+  font-size: 44rpx; font-weight: 700;
+  color: #D4A853; letter-spacing: 16rpx;
+  text-indent: 16rpx;
+  text-shadow: 0 0 32rpx rgba(212,168,83,0.45), 0 2rpx 8rpx rgba(0,0,0,0.35);
+}
+.fortune-subtitle {
+  display: block; font-size: 22rpx;
+  color: rgba(212,168,83,0.6); letter-spacing: 6rpx; margin-top: 8rpx;
+}
+
+.fortune-guide {
+  position: relative; z-index: 2;
+  display: block; text-align: center;
+  /* ★ 对齐 H5 .fortune-guide-text：金色半透明 ★ */
+  font-size: 24rpx; color: rgba(212,168,83,0.5);
+  letter-spacing: 12rpx; margin-top: 200rpx;
+}
+
+/* ★ H5 中 .shake-copy-card { display: none }，隐藏摇一摇提示卡 ★ */
+.shake-copy-card { display: none; }
+
+/* ★ 对齐 H5 .fortune-shake-btn：圆角矩形（非胶囊）+ 更金黄渐变 + 深棕文字 ★ */
+.fortune-shake-btn {
+  position: absolute; bottom: 12%; left: 50%;
+  transform: translateX(-50%); z-index: 10;
+  width: 320rpx; height: 92rpx;
+  border-radius: 20rpx;
+  border: 2px solid #f0cc78;
+  background:
+    linear-gradient(135deg, #ffe89a 0%, #d4a853 50%, #8a6233 100%);
+  box-shadow:
+    0 0 36rpx rgba(255, 220, 130, 0.5),
+    0 8rpx 20rpx rgba(0,0,0,0.22),
+    inset 0 -4rpx 12rpx rgba(0,0,0,0.28),
+    inset 0 4rpx 12rpx rgba(255,255,255,0.40);
+  color: #3a200a;
+  font-size: 34rpx; font-weight: 700;
+  font-family: "STSong", "SimSun", serif;
+  letter-spacing: 6rpx;
+  text-shadow: 0 2rpx 0 rgba(255,240,180,0.5);
+  text-align: center; border: none;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0;
+}
+.fortune-shake-btn::after { display: none; }
+.fortune-shake-btn[disabled] { opacity: 0.7; }
+
+.fortune-shake-btn.shaking {
+  animation: shakeAnim 0.15s ease-in-out infinite alternate;
+}
+@keyframes shakeAnim {
+  from { transform: translateX(-50%) rotate(-3deg); }
+  to   { transform: translateX(-50%) rotate(3deg); }
+}
+.shake-icon {
+  font-size: 34rpx;
+  font-weight: 700;
+  letter-spacing: 6rpx;
+  line-height: 1;
+}
+
+/* ============ 阶段2：签文卡（v2.3 像素级对齐 H5） ============
+ *
+ * H5 核心设计：
+ *   1. 无边框、无四角装饰 → 纯底图沉浸式
+ *   2. var(--ga) 等级变色体系：签号/大字/古诗/操作条 4 元素同色联动
+ *   3. 底图 100% 100% 拉伸 + flex column 文字靠上
+ *   4. 解签字色 #f5f1e8（暖白非纯白）+ font-weight 600
+ */
+
+.sign-unified {
+  position: relative;
+  margin: 20rpx 48rpx 20rpx;
+  padding: 36rpx 24rpx 16rpx;
+  /* ★ UX-fix-6（修订）：仅调整圆角到 32rpx 解决漏白，容器高度保持 1060rpx 不变 ★ */
+  border-radius: 32rpx;
+  overflow: hidden;
+
+  /* ★ S1：移除边框（对齐 H5 border: none）★ */
+  border: none;
+
+  /* 底图完整展示（对齐 H5 L4030-4035） */
+  background-color: #141a3a;
+  background-image: var(--bgi, none);
+  background-size: 100% 100%;
+  background-position: center top;
+  background-repeat: no-repeat;
+
+  /* 等效缩小：min-height 控制卡片高度 */
+  min-height: 1060rpx;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
+  /* 仅保留外阴影，不再 inset（原图本身有质感，不需要再压暗） */
+  box-shadow: 0 8rpx 32rpx rgba(0,0,0,0.35);
+}
+
+/* ★ S2：隐藏四角装饰（对齐 H5 .sign-u-corner { display: none }）★ */
+.sign-corner { display: none; }
+
+/* 关闭按钮（旧版，已废弃，保留兼容） */
+.sign-close-btn { display: none; }
+
+/* ★ UX-fix-3：返回按钮常驻左上角（page 级 fixed），与右上角微信胶囊水平对齐 ★
+ * 微信胶囊规范（设备无关）：距状态栏底部 4px，高 32px，距右边缘 7px
+ * 顶部位置 = 状态栏高度 + 4px。用 env(safe-area-inset-top) 兼容所有机型
+ * iPhone X+: env=44px；老机型：env=20px；都能正确对齐右上胶囊
+ */
+.sign-back-btn {
+  position: fixed;
+  /* 状态栏高度 + 4px ≈ 与右上胶囊同基线 */
+  top: calc(env(safe-area-inset-top, 44px) + 4px);
+  left: 14rpx;
+  /* 胶囊同款尺寸：64rpx ≈ 32px 与微信胶囊等高 */
+  width: 64rpx;
+  height: 64rpx;
+  line-height: 58rpx;
+  text-align: center;
+  font-size: 44rpx;
+  font-weight: 300;
+  color: rgba(255,255,255,0.92);
+  /* 胶囊同款半透明黑底 + 描边，视觉对齐右上角 */
+  background: rgba(0,0,0,0.35);
+  border-radius: 50%;
+  border: 1rpx solid rgba(255,255,255,0.18);
+  /* 高 z-index 保证滚动时常驻最上层 */
+  z-index: 999;
+  transition: all 0.15s ease;
+}
+.sign-back-btn:active {
+  background: rgba(0,0,0,0.55);
+  transform: scale(0.92);
+}
+
+/* 头部：签号 + 日期 */
+.sign-head {
+  display: flex;
+  justify-content: center;
+  gap: 20rpx;
+  align-items: baseline;
+  margin-bottom: 12rpx;
+  z-index: 2;
+}
+/* ★ S3：签号颜色随等级变化（对齐 H5 color: var(--ga); opacity: 0.8）★ */
+.sign-no {
+  font-size: 25rpx;
+  color: var(--ga, #E8C97A);
+  font-weight: bold;
+  letter-spacing: 2rpx;
+  font-family: "STSong", "SimSun", "Noto Serif SC", serif;
+  opacity: 0.8;
+}
+.sign-date {
+  font-size: 21rpx;
+  color: rgba(255,255,255,0.35);
+  font-family: -apple-system, sans-serif;
+}
+
+/* ★ S4：等级大字 — 对齐 H5（颜色/字距/发光）★ */
+.sign-grade {
+  text-align: center;
+  margin: 8rpx 0 16rpx;
+  z-index: 2;
+}
+.sign-grade-text {
+  font-size: 72rpx;
+  font-weight: 700;
+  color: var(--ga, #E8C97A);            /* ★ H5 用 var(--ga)，非 --gc */
+  letter-spacing: 20rpx;                /* ★ 对齐 H5 10px ≈ 20rpx */
+  text-indent: 20rpx;                   /* ★ 补偿 letter-spacing 导致的偏移 */
+  /* ★ 对齐 H5 text-shadow: 0 0 28px var(--ga), 0 0 56px var(--ga) ★ */
+  text-shadow: 0 0 28px var(--ga, #E8C97A), 0 0 56px var(--ga, #E8C97A);
+  font-family: "STSong", "SimSun", "Noto Serif SC", serif;
+}
+
+/* ★ S5：操作建议条 — 等级分色（对齐 H5 background: var(--ga)）★
+ * 大吉 → 亮金底 #E8C97A
+ * 上吉 → 橙金底 #D4B07A
+ * 中吉 → 灰绿底 #A8B89A
+ * 下下 → 玫红底 #CC5568
+ */
+.sign-action {
+  display: inline-block;
+  text-align: center;
+  font-size: 27rpx;
+  color: #1a1f3b !important;
+  font-weight: 600;
+  letter-spacing: 4rpx;
+  padding: 16rpx 44rpx;
+  background: var(--ga, rgba(230,235,250,0.92)) !important;
+  border: 1px solid var(--ga, rgba(230,235,250,0.92));
+  border-radius: 8rpx;                  /* ★ 对齐 H5 border-radius: 4px */
+  margin: 0 auto 16rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.2);
+  z-index: 2;
+}
+
+/* ★ S6：分隔线隐藏（对齐 H5 .sign-u-divider { display: none }）★ */
+.sign-divider {
+  display: none;
+}
+
+/* 诗句区域 */
+.sign-poem {
+  text-align: center;
+  margin: 12rpx 0 20rpx;
+  padding: 0 12rpx;
+  z-index: 2;
+}
+/* ★ S7：古诗颜色随等级变化 + 半透明（对齐 H5 color: var(--ga); opacity: 0.55）★ */
+.poem-ancient {
+  display: block;
+  font-size: 27rpx;
+  color: var(--ga, #E8C97A);
+  opacity: 0.55;
+  line-height: 1.95;
+  letter-spacing: 2rpx;
+  font-family: "STSong", "SimSun", serif;
+}
+/* ★ S8：解签字色暖白 + 字重 600 + 微妙 text-shadow（对齐 H5 .poem-advice）★ */
+.poem-modern {
+  display: block;
+  font-size: 28rpx;
+  color: #f5f1e8 !important;
+  font-weight: 600;
+  line-height: 1.9;
+  letter-spacing: 3rpx;
+  margin-top: 10rpx;
+  text-shadow: 0 0 10px rgba(245,241,232,0.3);
+}
+
+/* 市场数据行 */
+.sign-market-data {
+  margin-top: 16rpx;
+  padding: 16rpx 20rpx;
+  background: rgba(0,0,0,0.2);
+  border-radius: 10rpx;
+  z-index: 2;
+  width: 100%;
+  box-sizing: border-box;
+}
+.smd-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+}
+.smd-row + .smd-row { margin-top: 8rpx; }
+.smd-tag {
+  font-size: 21rpx;
+  color: #D4A853;
+  background: rgba(212,168,83,0.12);
+  padding: 4rpx 14rpx;
+  border-radius: 6rpx;
+}
+.smd-val {
+  font-size: 27rpx;
+  color: #fff !important;
+  font-weight: 500;
+  letter-spacing: 2rpx;
+}
+.smd-label { font-size: 21rpx; color: rgba(255,255,255,0.4); }
+.smd-hl { color: #E8C97A !important; }
+
+/* 底部口号 */
+.sign-footer {
+  text-align: center;
+  font-size: 23rpx;
+  color: rgba(255,255,255,0.45);
+  margin-top: auto;
+  padding-bottom: 20rpx;
+  letter-spacing: 4rpx;
+  z-index: 2;
+}
+.sign-footer::before {
+  content: '';
+  display: block;
+  width: 14rpx; height: 14rpx;
+  background: rgba(212,168,83,0.55);
+  border-radius: 50%;
+  margin: 0 auto 10rpx;
+}
+
+/* ============ 大师团圆桌（v2.3 像素级对齐 H5） ============
+ *
+ * H5 核心设计：
+ *   1. 外框有金色边框 + 顶部 2px 渐变装饰线
+ *   2. 标题金色 + text-shadow，非灰白色
+ *   3. 共识条有渐变背景框 + 边框
+ *   4. 连续列表 + 虚线分隔（非独立卡片）
+ *   5. 观点/战术行左缩进对齐头像右侧
+ *   6. 判词标签用 Georgia 衬线 + 小圆角
+ *   7. 头像有 currentColor glow
+ */
+
+.masters-section {
+  margin: 1px 24rpx 24rpx;
+  /* ★ R5：底部留出 TabBar 空间 ★ */
+  padding-bottom: 120rpx;
+  /* ★ M1：对齐 H5 边框 + 顶部装饰线 ★ */
+  background: rgba(255,255,255,0.02);
+  border: 1.5px solid rgba(212,168,83,0.25);
+  border-radius: 16rpx;
+  padding: 8rpx 0;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ★ M1：顶部金色渐变装饰线（对齐 H5 .masters-pro::before）★ */
+.masters-section::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 4rpx;
+  background: linear-gradient(90deg, transparent, #D4A853, transparent);
+  z-index: 1;
+}
+
+/* ★ M2：标题金色 + text-shadow + 移除左侧竖线（对齐 H5）★ */
+.card-title {
+  text-align: center;
+  font-size: 28rpx;
+  color: #D4A853;
+  letter-spacing: 8rpx;
+  /* ★ UX-fix-2：标题与共识条间距加大，建立视觉层次 ★ */
+  margin: 18rpx 0 22rpx;
+  /* ★ 对齐 H5 text-shadow + 移除 border-left ★ */
+  text-shadow: 0 0 12px rgba(212,168,83,0.4);
+  padding-left: 0;
+  border-left: none;
+  display: block;
+}
+
+/* ★ M3 v2：共识结论 — 视觉强调级（UI Pro Max 改造）★
+ * 设计意图：从"淡淡的提示条"升级为"大师团圆桌的核心结论",
+ * 让用户一眼就能看到今天 8 位大师的统一战术建议。
+ * 设计要点：
+ *   - 黑金双层卡：外层深色背景 + 内层金色描边，营造"奖杯/铭牌"质感
+ *   - 双横线包裹：上下各一条金色渐变细线，仪式感
+ *   - 标签 + 主文案两行式：清晰区分"共识结论"标签与具体战术
+ *   - 主文案用大号金色 + 字间距，强化阅读权重
+ *   - 内发光 + 外辉光：双重高光增加贵重感
+ */
+.masters-consensus {
+  position: relative;
+  text-align: center;
+  margin: 4rpx 28rpx 28rpx;
+  padding: 24rpx 32rpx 26rpx;
+  /* 深色雾化背景 + 金色细描边 */
+  background:
+    linear-gradient(180deg, rgba(28,30,55,0.92) 0%, rgba(20,22,42,0.88) 100%);
+  border: 1.5rpx solid rgba(212,168,83,0.55);
+  border-radius: 14rpx;
+  /* 双层阴影：外辉光 + 内顶光 */
+  box-shadow:
+    0 0 32rpx rgba(212,168,83,0.18),
+    inset 0 1rpx 0 rgba(255,221,150,0.25),
+    inset 0 -1rpx 0 rgba(0,0,0,0.4);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10rpx;
+}
+
+/* 上沿装饰线：金色渐变细线 */
+.masters-consensus::before {
+  content: '';
+  position: absolute;
+  top: -1rpx; left: 12%; right: 12%;
+  height: 2rpx;
+  background: linear-gradient(90deg, transparent, #E8C97A, transparent);
+  z-index: 1;
+}
+
+/* 下沿装饰线：金色渐变细线 */
+.masters-consensus::after {
+  content: '';
+  position: absolute;
+  bottom: -1rpx; left: 18%; right: 18%;
+  height: 2rpx;
+  background: linear-gradient(90deg, transparent, rgba(212,168,83,0.5), transparent);
+  z-index: 1;
+}
+
+/* "共识结论" 4 字小标签：作为指引文字 */
+.consensus-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 12rpx;
+  font-size: 20rpx;
+  color: rgba(212,168,83,0.7);
+  letter-spacing: 8rpx;
+  font-weight: 400;
+  text-shadow: 0 0 8rpx rgba(212,168,83,0.3);
+}
+.consensus-label::before,
+.consensus-label::after {
+  content: '◆';
+  font-size: 14rpx;
+  color: rgba(212,168,83,0.55);
+}
+
+/* 主文案：大号金色 + 字间距，视觉主角 */
+.consensus-text {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: #F0D58C;
+  letter-spacing: 4rpx;
+  line-height: 1.4;
+  /* 金色文字辉光 */
+  text-shadow:
+    0 0 16rpx rgba(232,201,122,0.5),
+    0 0 4rpx rgba(255,221,150,0.8);
+  /* 字体上加一点深色描边增加立体感 */
+  -webkit-text-stroke: 0.3rpx rgba(0,0,0,0.2);
+}
+
+/* 通用金色文字工具类（保留备用，向下兼容） */
+.gold-text { color: #D4A853; font-weight: 600; }
+
+/* ★ M8：连续列表（非独立卡片）★ */
+.masters-list {
+  padding: 0 28rpx;
+}
+
+/* ★ M8：行样式 — 连续列表 + 虚线分隔（对齐 H5 border-bottom dashed）★ */
+.master-row {
+  position: relative;
+  padding: 28rpx 0;
+  /* ★ 对齐 H5 border-bottom: 1px dashed rgba(gold, 0.18) ★ */
+  border-bottom: 1px dashed rgba(212,168,83,0.18);
+  /* 移除独立卡片的圆角/背景/边框 */
+  background: transparent;
+  border-radius: 0;
+  border-left: none;
+  border-right: none;
+  border-top: none;
+}
+.master-row:last-child {
+  border-bottom: none;
+}
+
+/* 头部：头像 + 名字/学派 + 判词标签 */
+.master-head {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-bottom: 16rpx;
+}
+/* ★ M4：头像边框改善 + 颜色 glow（对齐 H5 border + box-shadow currentColor）★ */
+.master-avatar {
+  width: 68rpx; height: 68rpx;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 28rpx; color: #fff; font-weight: 700;
+  flex-shrink: 0;
+  /* ★ 对齐 H5 border + glow（颜色通过 inline style box-shadow 设置）★ */
+  border: 2px solid rgba(255,255,255,0.15);
+  /* box-shadow 在 WXML inline style 中用 item.color 动态设置 glow */
+}
+.master-meta { flex: 1; min-width: 0; }
+.master-name {
+  display: block; font-size: 30rpx;
+  color: #fff; font-weight: 600;
+  letter-spacing: 1rpx;
+  line-height: 1.3;
+}
+.master-school {
+  display: block; font-size: 22rpx;
+  color: rgba(255,255,255,0.38); margin-top: 3rpx;
+  letter-spacing: 1rpx;
+}
+
+/* ★ M5：判词标签 — Georgia 衬线 + 小圆角 + solid 边框（对齐 H5）★ */
+.master-verdict {
+  padding: 8rpx 22rpx;
+  border-radius: 8rpx;               /* ★ 对齐 H5 border-radius: 4px ≈ 8rpx（非胶囊 24rpx）*/
+  font-size: 21rpx;
+  font-weight: 700;
+  flex-shrink: 0;
+  letter-spacing: 2rpx;
+  font-family: Georgia, "Times New Roman", serif;  /* ★ 对齐 H5 衬线字体 */
+}
+/* ★ 判词颜色：solid border + 半透明背景（对齐 H5 border: 1px solid currentColor）★ */
+.verdict-buy {
+  background: rgba(39,174,96,0.12);
+  color: #2ECC71;
+  border: 1px solid rgba(39,174,96,0.5);
+}
+.verdict-sell {
+  background: rgba(231,76,60,0.12);
+  color: #E74C3C;
+  border: 1px solid rgba(231,76,60,0.5);
+}
+.verdict-look {
+  background: rgba(240,173,78,0.12);
+  color: #F0AD4E;
+  border: 1px solid rgba(240,173,78,0.5);
+}
+.verdict-hold {
+  background: rgba(91,160,222,0.12);
+  color: #5BC0DE;
+  border: 1px solid rgba(91,160,222,0.5);
+}
+
+/* ★ M6：观点正文 — 左缩进对齐头像右侧（对齐 H5 padding-left: 42px ≈ 84rpx）★ */
+.master-text {
+  display: block;
+  font-size: 27rpx;
+  color: rgba(255,255,255,0.78) !important;
+  line-height: 1.72;
+  letter-spacing: 1.5rpx;
+  margin-top: 4rpx;
+  /* ★ M6：左缩进对齐头像右侧 ★ */
+  padding-left: 84rpx;
+  text-align: justify;
+  word-break: break-all;
+}
+
+/* ★ M7：战术行 — 左缩进 + 加粗金色竖线（对齐 H5 margin-left: 42px + border-left: 2.5px）★ */
+.master-tactics {
+  font-size: 23rpx;
+  color: #D4A853;
+  margin-top: 14rpx;
+  /* ★ 对齐 H5 margin-left: 42px ≈ 84rpx ★ */
+  margin-left: 84rpx;
+  padding: 10rpx 16rpx 10rpx 20rpx;
+  letter-spacing: 1.5rpx;
+  line-height: 1.6;
+  background: rgba(212,168,83,0.05);
+  border-radius: 8rpx;
+  /* ★ 对齐 H5 border-left: 2.5px solid var(--gold) ≈ 5rpx ★ */
+  border-left: 5rpx solid #D4A853;
+}
+
+/* 锁定标记：小标签 */
+.master-lock-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4rpx;
+  margin-left: auto;
+  padding: 4rpx 12rpx;
+  background: rgba(212,168,83,0.15);
+  border: 1rpx solid rgba(212,168,83,0.3);
+  border-radius: 16rpx;
+  flex-shrink: 0;
+}
+.lock-icon {
+  font-size: 18rpx;
+  line-height: 1;
+}
+.lock-label {
+  font-size: 18rpx;
+  color: #D4A853;
+  font-weight: 600;
+  letter-spacing: 1rpx;
+  line-height: 1;
+}
+
+/* ====== 大师团 PRO CTA（对齐 H5 .masters-report-cta）====== */
+.masters-cta {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 28rpx;
+  margin: 32rpx 28rpx 0;
+  padding: 32rpx 28rpx 32rpx 32rpx;
+  overflow: hidden;
+  /* ★ 对齐 H5：双层渐变背景 + 金色边框 ★ */
+  background:
+    linear-gradient(135deg, rgba(212,168,83,0.28) 0%, rgba(184,51,74,0.15) 100%),
+    linear-gradient(180deg, #1a1a45 0%, #0f1128 100%);
+  border: 1.5px solid #D4A853;
+  border-radius: 20rpx;                   /* ★ H5: 10px ≈ 20rpx ★ */
+  box-shadow: 0 4rpx 40rpx rgba(212,168,83,0.3), inset 0 2rpx 0 rgba(255,255,255,0.05);
+}
+/* ★ 右上角装饰星号（对齐 H5 ::before）★ */
+.masters-cta::before {
+  content: "★";
+  position: absolute;
+  top: -20rpx; right: 24rpx;
+  color: #D4A853;
+  font-size: 112rpx;
+  opacity: 0.06;
+  pointer-events: none;
+}
+
+/* ★ 对齐 H5 .mrc-badge：圆形金色渐变 PRO 图标 ★ */
+.cta-badge {
+  flex-shrink: 0;
+  width: 80rpx; height: 80rpx;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #ffe89a 0%, #d4a040 60%, #b8860b 100%);
+  color: #3a200a;
+  display: flex; align-items: center; justify-content: center;
+  font-family: Georgia, serif;
+  font-size: 22rpx; font-weight: 800;
+  letter-spacing: 2rpx;
+  box-shadow: 0 4rpx 28rpx rgba(255,220,130,0.6), inset 0 2rpx 0 rgba(255,255,255,0.4);
+}
+.cta-body { flex: 1; }
+/* ★ 对齐 H5 .mrc-title：金色衬线大字 ★ */
+.cta-title {
+  display: block; font-size: 30rpx;
+  color: #E8C97A; font-weight: 700;
+  font-family: "STSong", "SimSun", "Noto Serif SC", serif;
+  letter-spacing: 6rpx;
+  line-height: 1.35;
+}
+/* ★ 对齐 H5 .mrc-desc：淡紫灰描述 ★ */
+.cta-desc {
+  display: block; font-size: 22rpx;
+  color: rgba(200,195,220,0.7);
+  margin-top: 8rpx;
+  letter-spacing: 0.6rpx;
+  line-height: 1.5;
+}
+/* ★ 对齐 H5 .mrc-arrow：更大更淡的箭头 ★ */
+.cta-arrow {
+  font-size: 64rpx;
+  color: rgba(212,168,83,0.6);
+  font-weight: 300;
+  line-height: 1;
+}
+
+/* ====== 签级主题色覆盖 ====== */
+.sign-shangshang { --gc: #D4A853; --ga: #E8C97A; }
+.sign-shangji   { --gc: #C89A5B; --ga: #D4B07A; }
+.sign-zhongji   { --gc: #8A9A7D; --ga: #A8B89A; }
+.sign-zhongping { --gc: #8A8DA0; --ga: #A0A3B5; }
+.sign-xiaxia    { --gc: #B8334A; --ga: #CC5568; }
+
+/* ================================================================
+ * 购买弹窗 shop-modal（对齐 H5 shop-modal + 图1）
+ * ================================================================ */
+.shop-modal {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+}
+.shop-mask {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.72);
+}
+.shop-card {
+  position: relative;
+  width: 100%;
+  max-height: 82vh;
+  background: linear-gradient(180deg, #14183a 0%, #0c1230 100%);
+  border-radius: 32rpx 32rpx 0 0;
+  border-top: 1.5rpx solid rgba(212,168,83,0.25);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: shopSlideUp 280ms ease-out;
+}
+@keyframes shopSlideUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
+/* 顶栏 */
+.shop-top {
+  display: flex;
+  align-items: center;
+  padding: 32rpx 32rpx 20rpx;
+  border-bottom: 0.5rpx solid rgba(212,168,83,0.12);
+  flex-shrink: 0;
+}
+.shop-title {
+  font-size: 34rpx;
+  color: #D4A853;
+  font-weight: 600;
+  letter-spacing: 8rpx;
+  font-family: "STSong", "SimSun", "Noto Serif SC", serif;
+}
+.shop-sub {
+  margin-left: 20rpx;
+  font-size: 22rpx;
+  color: rgba(245,241,232,0.55);
+  letter-spacing: 1rpx;
+}
+.shop-close {
+  margin-left: auto;
+  width: 56rpx; height: 56rpx;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.08);
+  color: rgba(245,241,232,0.6);
+  font-size: 36rpx;
+  display: flex; align-items: center; justify-content: center;
+  line-height: 1;
+}
+
+/* 列表 */
+.shop-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8rpx 32rpx;
+  -webkit-overflow-scrolling: touch;
+}
+.shop-row {
+  display: flex;
+  align-items: center;
+  padding: 20rpx 0;
+  border-bottom: 0.5rpx solid rgba(212,168,83,0.1);
+}
+.shop-row:last-child { border-bottom: none; }
+.shop-row-bought { opacity: 0.55; }
+.shop-row-left {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 18rpx;
+  min-width: 0;
+}
+.shop-row-avatar {
+  width: 64rpx; height: 64rpx;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #fff;
+  flex-shrink: 0;
+}
+.shop-row-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+.shop-row-name {
+  font-size: 28rpx;
+  color: #f5f1e8;
+  font-weight: 500;
+  letter-spacing: 1rpx;
+}
+.shop-row-feature {
+  font-size: 22rpx;
+  color: rgba(245,241,232,0.5);
+  letter-spacing: 0.5rpx;
+  line-height: 1.4;
+}
+.shop-row-right {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  flex-shrink: 0;
+  margin-left: 16rpx;
+}
+.shop-row-verdict {
+  font-size: 20rpx;
+  font-weight: 600;
+  padding: 4rpx 12rpx;
+  border-radius: 8rpx;
+  letter-spacing: 1rpx;
+}
+.shop-row-check {
+  font-size: 24rpx;
+  color: #27AE60;
+  font-weight: 700;
+}
+.shop-buy-btn {
+  padding: 10rpx 20rpx;
+  background: linear-gradient(145deg, #D4A853, #B8923F);
+  color: #0A0E27;
+  font-size: 24rpx;
+  font-weight: 700;
+  border-radius: 10rpx;
+  letter-spacing: 1rpx;
+  line-height: 1;
+}
+.shop-buy-small {
+  font-size: 18rpx;
+  font-weight: 500;
+  margin-left: 2rpx;
+}
+
+/* 底部套餐 */
+.shop-bundle {
+  display: flex;
+  align-items: center;
+  padding: 24rpx 32rpx;
+  margin: 0 32rpx 16rpx;
+  background: rgba(212,168,83,0.06);
+  border: 0.5rpx solid rgba(212,168,83,0.18);
+  border-radius: 16rpx;
+  flex-shrink: 0;
+}
+.shop-bundle-left { flex: 1; min-width: 0; }
+.shop-bundle-title {
+  display: block;
+  font-size: 28rpx;
+  color: #E8C97A;
+  font-weight: 600;
+  letter-spacing: 6rpx;
+  font-family: "STSong", "SimSun", "Noto Serif SC", serif;
+}
+.shop-bundle-desc {
+  display: block;
+  font-size: 22rpx;
+  color: rgba(245,241,232,0.5);
+  margin-top: 6rpx;
+  letter-spacing: 0.5rpx;
+}
+.shop-bundle-right {
+  display: flex;
+  gap: 16rpx;
+  flex-shrink: 0;
+  margin-left: 20rpx;
+}
+.shop-bundle-btn {
+  padding: 16rpx 24rpx;
+  background: rgba(255,255,255,0.08);
+  color: #f5f1e8;
+  font-size: 26rpx;
+  font-weight: 600;
+  border-radius: 12rpx;
+  border: 0.5rpx solid rgba(255,255,255,0.12);
+  text-align: center;
+  line-height: 1.2;
+}
+.shop-bundle-btn.hot {
+  background: linear-gradient(145deg, #D4A853, #B8923F);
+  color: #0A0E27;
+  border-color: transparent;
+}
+.shop-btn-small {
+  display: block;
+  font-size: 18rpx;
+  font-weight: 500;
+  opacity: 0.8;
+}
+
+.shop-all-done {
+  text-align: center;
+  padding: 24rpx 32rpx;
+  font-size: 26rpx;
+  color: #D4A853;
+  letter-spacing: 4rpx;
+  flex-shrink: 0;
+}
+
+.shop-foot {
+  text-align: center;
+  font-size: 20rpx;
+  color: rgba(245,241,232,0.35);
+  padding: 16rpx 32rpx 48rpx;
+  letter-spacing: 1rpx;
+  flex-shrink: 0;
+}
+
+/* verdict 颜色（弹窗内复用） */
+.v-buy  { background: rgba(231,76,60,0.12);  color: #E74C3C; border: 1rpx solid rgba(231,76,60,0.4); }
+.v-sell { background: rgba(39,174,96,0.12);  color: #27AE60; border: 1rpx solid rgba(39,174,96,0.4); }
+.v-hold { background: rgba(91,160,222,0.12); color: #5BC0DE; border: 1rpx solid rgba(91,160,222,0.4); }
+.v-look { background: rgba(240,173,78,0.12); color: #F0AD4E; border: 1rpx solid rgba(240,173,78,0.4); }
+
+/* 免责声明 */
+.disclaimer-bar {
+  padding: 24rpx 32rpx 48rpx;
+  text-align: center;
+}
+.disclaimer-text {
+  font-size: 22rpx;
+  color: rgba(255,255,255,0.3);
+  line-height: 1.6;
+}

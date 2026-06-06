@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# IDE & Tools
+.workbuddy/
+.learnings/
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python
+*.egg-info/
+dist/
+build/
+venv/
+.venv/
+
+# Logs & Temp
+*.log
+*.tmp
+logs/
+
+# Backup files
+_cloudfunctions.bak/
+
+# Sensitive (exclude from public repo)
+军师报告/
+.env
+*.pem
+*.key
+
+# V1 legacy
+generate_daily_sign.py.legacy
