@@ -50,6 +50,8 @@ Page({
     // L3-1: 整个加载过程 try-catch 保护
     try {
       this._loadLocalData();
+      // v2.3: 异步加载远程数据（不阻塞本地渲染）
+      this._loadRemoteData();
     } catch (err) {
       console.error('[sign][L3] onLoad 异常:', err.message || err);
       // 用安全默认值渲染，不让页面白屏
@@ -120,8 +122,8 @@ Page({
       console.error('[sign][L3] setData 异常:', setDataErr.message);
     }
 
-    // 本地数据已完整，暂不调用云端增强（云函数未部署时避免 timeout 红错）
-    // this._tryCloudEnhance();  // TODO: 云函数部署后取消注释启用
+    // 本地数据已完整，远程数据由 _loadRemoteData() 异步加载
+    // v2.3: 使用 fetchRemoteSign() 替代云函数方案
 
     // L3-6: 历史记录写入保护
     try {
@@ -174,6 +176,35 @@ Page({
     } catch (e) {
       // 静默
     }
+  },
+
+  /**
+   * v2.3: 异步加载远程服务器真实数据
+   * 先用本地数据快速渲染，再后台拉取真实行情数据更新
+   * 失败静默降级，不影响用户已看到的本地数据
+   */
+  _loadRemoteData: function() {
+    var self = this;
+    console.log('[sign] 开始加载远程数据...');
+    marketSign.fetchRemoteSign().then(function(result) {
+      if (result.source === 'remote') {
+        var sign = result.sign;
+        console.log('[sign] 远程数据已就绪 签级:', sign.gradeLabel);
+        try {
+          var masters = marketSign.buildMasters(sign).filter(function(m) { return m.isFree; });
+          var premium = marketSign.buildPremiumMasters(sign);
+          var isPaid = payment.isProUser();
+          if (isPaid) premium = premium.map(function(m) { return Object.assign({}, m, { isBought: true }); });
+          self.setData({
+            sign: sign, masters: masters, premiumMasters: premium,
+            isPaidUser: isPaid, shopBoughtCount: isPaid ? premium.length : 0,
+          });
+          console.log('[sign] ✔ 远程数据已更新 UI');
+        } catch (e) { console.warn('[sign] 远程数据更新 UI 异常:', e.message); }
+      }
+    }).catch(function(err) {
+      console.log('[sign] 远程数据加载跳过（正常降级）');
+    });
   },
 
   /** 摇签动作 */

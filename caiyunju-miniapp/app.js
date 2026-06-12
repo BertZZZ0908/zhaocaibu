@@ -1,5 +1,7 @@
-// app.js · 招财簿 v2.0 全局配置
+// app.js · 招财簿 v2.1 全局配置
 // 设计原则：纯本地数据优先，云端增强非必需
+
+var apiConfig = require('./utils/api-config');
 
 App({
   globalData: {
@@ -14,6 +16,9 @@ App({
 
     // 系统信息
     systemInfo: null,
+
+    // API 配置引用
+    apiConfig: apiConfig,
   },
 
   onLaunch() {
@@ -29,8 +34,9 @@ App({
     }
     console.log('[app] Launch OK', this.globalData.systemInfo.model, this.globalData.systemInfo.SDKVersion || this.globalData.systemInfo.version);
 
-    // 从 storage 恢复用户数据
+    // 从 storage 恢复用户数据 + API 配置
     this._restoreUserData();
+    apiConfig.restoreApiKey();
   },
 
   /** 从本地存储恢复用户八字 */

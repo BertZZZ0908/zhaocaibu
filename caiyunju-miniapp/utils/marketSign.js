@@ -1,13 +1,13 @@
-// utils/marketSign.js · v2.2 · 签文数据源（本地 + 远程 API 优先 + 数据契约校验）
+// utils/marketSign.js · v2.3 · 签文数据源（本地 + 远程 API 优先 + 数据契约校验）
 // 核心原则：所有字段都有有效默认值，poemAncient/poemModern 永远是 2 元素数组
 // L1 防线：关键导出函数带运行时断言，缺失字段用安全默认值兜底 + console.error 暴露
 // v2.2: 新增 fetchRemoteSign() — 连服务端 /api/sign 获取真实数据，失败降级本地 Mock
+// v2.3: 接入 api-config.js 统一配置 + API Key 鉴权
 
-// ============ 远程 API 配置 ============
-var API_CONFIG = {
-  baseURL: '',  // 自动使用当前请求域名（同源）；开发时可设 'http://localhost:5818'
-  timeout: 5000,  // 5 秒超时
-};
+var apiConfig = require('./api-config');
+
+// ============ 远程 API 配置（已迁移到 api-config.js）============
+// 使用 apiConfig.API_CONFIG.baseURL / timeout / apiKey
 
 // ============ L1 数据契约定义 ============
 var SIGN_REQUIRED_FIELDS = [
@@ -246,12 +246,13 @@ function getMarketSign() {
  */
 function fetchRemoteSign() {
   return new Promise(function(resolve) {
-    var url = (API_CONFIG.baseURL || '') + '/api/sign';
+    var url = (apiConfig.API_CONFIG.baseURL || '') + '/api/sign';
 
     wx.request({
       url: url,
       method: 'GET',
-      timeout: API_CONFIG.timeout,
+      header: apiConfig.getHeaders(),
+      timeout: apiConfig.API_CONFIG.timeout || 8000,
       success: function(res) {
         if (res.statusCode === 200 && res.data && res.data.grade) {
           try {

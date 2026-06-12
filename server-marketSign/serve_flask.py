@@ -32,22 +32,26 @@ except ImportError:
     sys.exit(1)
 
 app = Flask(__name__)
-STATIC_DIR = None
+# STATIC_DIR 在模块级初始化（gunicorn 不会调 main()，必须在此设置）
+STATIC_DIR = Path(__file__).resolve().parent / "output"
+STATIC_DIR.mkdir(parents=True, exist_ok=True)
 _server_start_time = time.time()  # 用于 /health 上报 uptime
 
-# ============ P0-4 安全配置 ============
+# ============ API Key 鉴权配置 ============
+API_KEY = os.environ.get("CAIYUNJU_API_KEY", "")
+API_KEY_ENDPOINTS = {"/api/sign", "/api/masters"}  # 需要鉴权的端点
+
+# ============ 安全配置 ============
 
 # CORS 白名单（精确匹配）
 ALLOWED_ORIGINS = {
     # H5 端
     "http://localhost:5817",
     "http://127.0.0.1:5817",
-    # 小程序端在抓包/调试时的 origin
-    "https://servicewechat.com",
     # 生产域名（备案后填入）
-    # "https://caiyunju.example.com",
+    # "https://你的域名",
 }
-# 是否允许小程序无 Origin 请求（小程序请求默认无 Origin 头）
+# 是否允许小程序无 Origin 请求（小程序请求默认无 Origin 头，走此分支）
 ALLOW_NO_ORIGIN = True
 
 # 简易限流：单 IP 60 秒窗口内 120 次（约 2 QPS）
@@ -94,9 +98,15 @@ def _rate_limit_and_log():
     """限流 + 访问日志（P0-4 新增）"""
     ip = _client_ip()
     path = request.path
-    # 健康检查不限流
+    # 健康检查不限流、不鉴权
     if path == "/health":
         return None
+    # API Key 鉴权（如果配置了 API_KEY）
+    if API_KEY and request.path in API_KEY_ENDPOINTS:
+        key = request.headers.get("X-API-Key") or request.args.get("api_key")
+        if key != API_KEY:
+            access_logger.warning("AUTH_FAIL ip=%s path=%s", ip, path)
+            return jsonify({"error": "unauthorized", "message": "需要有效的 API Key"}), 401
     # 限流
     now = time.time()
     bucket = _rate_buckets[ip]
@@ -137,6 +147,8 @@ def add_cors(response):
     # 安全头
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["X-Permitted-Cross-Domain-Policies"] = "none"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     return response
 

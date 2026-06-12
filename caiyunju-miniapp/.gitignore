@@ -1,0 +1,14 @@
+# 招财簿小程序 · gitignore
+# 密钥文件 —— 绝不提交！
+config.local.js
+.api_key
+
+# 云函数备份（暂不部署）
+_cloudfunctions.bak/
+
+# 微信开发者工具
+.idea/
+*.log
+
+# macOS
+.DS_Store

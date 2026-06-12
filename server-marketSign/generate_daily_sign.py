@@ -19,7 +19,9 @@ import argparse
 import json
 import os
 import random
+import shutil
 import sys
+import tempfile
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -1004,8 +1006,11 @@ def main():
 
     sign = build_sign(today, raw, source, is_holiday, holiday_reason)
 
-    with open(out_path, "w", encoding="utf-8") as f:
+    # 原子写入：先写临时文件，再 rename（POSIX 原子操作，避免并发读不完整 JSON）
+    tmp_fd, tmp_path = tempfile.mkstemp(dir=str(out_dir), suffix=".json")
+    with os.fdopen(tmp_fd, "w", encoding="utf-8") as f:
         json.dump(sign, f, ensure_ascii=False, indent=2)
+    shutil.move(tmp_path, str(out_path))
 
     # 历史归档（仅交易日）
     if not is_holiday:
