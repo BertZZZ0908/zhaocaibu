@@ -67,6 +67,19 @@ def archive_verdict(date: datetime, sign_data: dict):
         "grade_label": sign_data.get("gradeLabel", ""),
         "consensus": sign_data.get("masters", {}).get("consensus", ""),
         "nt_phase": nt.get("phase", "") if nt.get("enabled") else "",
+        "data_source": sign_data.get("dataSource", ""),
+        "data_quality": expand.get("dataQuality", {}),
+        "features": {
+            "north_flow_yi": expand.get("northFlowYi"),
+            "main_net_flow_yi": expand.get("mainNetFlowYi"),
+            "volume_yi": expand.get("volumeYi"),
+            "volume_ratio": expand.get("volumeRatio"),
+            "pe_300": expand.get("pe300"),
+            "pe_pct": expand.get("pePct"),
+            "margin_chg_yi": expand.get("marginChgYi"),
+            "up_ratio_chg": expand.get("upRatioChg"),
+            "hot_sectors": expand.get("hotSectors", []),
+        },
         "masters": [
             {
                 "id": m.get("id", ""),

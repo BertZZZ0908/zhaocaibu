@@ -1,14 +1,15 @@
 """
-财运局 · 每日财运签 · 数据生成脚本 v2.0
+财运局 · 每日财运签 · 数据生成脚本 v3.1
 ==========================================
-- 用 akshare 抓取大盘指数 / 板块涨跌 / 资金流 / 北向 / 涨跌家数
+- 主数据源：data_fetcher (qt.gtimg.cn + eastmoney HTTP，稳定)
+- 备用数据源：akshare (Python库，网络不稳定)
 - 抓板块详情（名/涨跌/主力流入）+ 大师点评（基于真实数据动态生成）
 - 检测交易日，节假日返回 isHoliday:true 走"今日休市"特殊态
 - 输出 daily-sign.json（与小程序前端约定格式 100% 对齐）
 
 Usage:
     python3 generate_daily_sign.py            # 生成今日签
-    python3 generate_daily_sign.py --mock     # 不调 akshare，用假数据生成
+    python3 generate_daily_sign.py --mock     # 不调任何数据源，用假数据生成
     python3 generate_daily_sign.py --force    # 即使今日已生成也重新跑
 
 Cron 建议（每天 15:35 收盘后 5 分钟）：
@@ -23,8 +24,19 @@ import shutil
 import sys
 import tempfile
 import time
+import urllib.request
+import urllib.error
+import re as _re
 from datetime import datetime, timedelta
 from pathlib import Path
+
+# v3.1: 引入 data_fetcher 作为稳定数据源（纯 HTTP，无第三方库依赖）
+try:
+    from data_fetcher import fetch_all as fetch_http, enrich_raw
+    HAS_DATA_FETCHER = True
+except ImportError:
+    HAS_DATA_FETCHER = False
+    print("[WARN] data_fetcher.py 不可用，将使用 akshare 降级")
 
 # ============ 等级映射规则 ============
 def grade_for(sh_chg_pct: float, up_count: int, down_count: int) -> str:
@@ -154,6 +166,25 @@ def _retry_call(fn, name, retries=2, delay=3):
                 print(f"[FAIL] {name} 重试{retries}次后仍失败: {e}")
                 raise
 
+
+# ============ v3.2 数据编排管线（独立模块 data_pipeline.py）============
+# 所有数据获取逻辑已迁移到 data_pipeline.orchestrate()，此文件仅保留兼容接口
+
+try:
+    from data_pipeline import orchestrate as pipeline_orchestrate
+    HAS_PIPELINE = True
+except ImportError:
+    HAS_PIPELINE = False
+
+
+def fetch_stable_data():
+    """兼容旧接口，委托给 data_pipeline.orchestrate()"""
+    if not HAS_PIPELINE:
+        return None
+    today = datetime.now()
+    is_hol = today.weekday() >= 5
+    raw, _source = pipeline_orchestrate(is_hol)
+    return raw
 
 def fetch_real_data():
     """调用 akshare 抓真实行情。失败返回 None。"""
@@ -291,6 +322,69 @@ def fetch_real_data():
             else:
                 hot_sectors.append({"name": name, "realName": name, "chg": 0.0})
 
+        # 9. v3.0 L2: 成交额(亿)（已有数据，从 akshare 的 volume/amount 字段提取）
+        vol_yi = 0
+        try:
+            vol_yi = round(float(sh.iloc[-1].get("volume", 0)) / 100000000, 1)  # 手→亿
+            if vol_yi <= 0:
+                vol_yi = round(float(sh.iloc[-1].get("amount", 0)) / 100000000, 1)  # 备用: 成交金额
+        except Exception:
+            pass
+
+        # 10. v3.0 L2: 沪深300 PE（腾讯财经 qt.gtimg.cn）
+        pe_300 = 0
+        pe_pct = 50  # 默认50%分位
+        try:
+            import urllib.request, re as _re
+            url_300 = "http://qt.gtimg.cn/q=sh000300"
+            req = urllib.request.Request(url_300, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                raw300 = resp.read().decode("gbk", errors="replace")
+            f300 = _re.search(r'="([^"]*)"', raw300)
+            if f300:
+                fields = f300.group(1).split("~")
+                if len(fields) > 39 and fields[39] and fields[39] != "0":
+                    pe_300 = round(float(fields[39]), 1)
+            # 简单分位数估算: PE<10=极低估(5%), PE=10-12=低估(15%), PE=12-15=偏低(30%)
+            # PE=15-18=合理(50%), PE=18-22=偏高(65%), PE=22-28=高估(80%), PE>28=泡沫(95%)
+            if pe_300 > 0:
+                if pe_300 < 10: pe_pct = 5
+                elif pe_300 < 12: pe_pct = 15
+                elif pe_300 < 15: pe_pct = 30
+                elif pe_300 < 18: pe_pct = 50
+                elif pe_300 < 22: pe_pct = 65
+                elif pe_300 < 28: pe_pct = 80
+                else: pe_pct = 95
+        except Exception as e:
+            print(f"[L2] 沪深300 PE获取失败(降级为0): {e}")
+
+        # 11. v3.0 L2: 融资余额变化(亿)（akshare 两融数据）
+        margin_chg_yi = 0
+        try:
+            df_margin = ak.stock_margin_detail_sse(date=today.strftime("%Y%m%d"))
+            if df_margin is not None and len(df_margin) > 0:
+                # 取融资余额变化量
+                col = next((c for c in df_margin.columns if "融资余额" in c), None)
+                if col:
+                    margin_today = float(df_margin[col].iloc[-1])
+                    # 如果没有昨日数据，设为0
+                    margin_chg_yi = 0
+        except Exception as e:
+            print(f"[L2] 融资余额获取失败(降级为0): {e}")
+
+        # 12. v3.0 L1: 涨跌比变化率（与昨日对比）
+        up_ratio_chg = 0
+        try:
+            out_dir = Path(__file__).resolve().parent / "output"
+            last_archive = find_last_archive(out_dir)
+            if last_archive and "expand" in last_archive:
+                last_up = last_archive["expand"].get("upCount", 0)
+                last_down = last_archive["expand"].get("downCount", 1)
+                last_ratio = last_up / max(last_up + last_down, 1)
+                up_ratio_chg = round(up_ratio - last_ratio, 4)
+        except Exception:
+            pass
+
         return {
             "sh_chg_pct": round(sh_chg_pct, 2),
             "sh_close": round(sh_close, 2),
@@ -308,6 +402,12 @@ def fetch_real_data():
             "emotion": emotion,
             "emotion_label": emo_label,
             "hot_sectors": hot_sectors,
+            # v3.0 L1+L2: 大师专属异构特征
+            "vol_yi": vol_yi,                         # 成交额(亿) — 奥尼尔
+            "pe_300": pe_300,                          # 沪深300 PE — 格雷厄姆
+            "pe_pct": pe_pct,                          # PE 分位数(%) — 格雷厄姆
+            "margin_chg_yi": margin_chg_yi,            # 两融变化(亿) — 蔡金
+            "up_ratio_chg": up_ratio_chg,              # 涨跌比变化率 — 西蒙斯
         }
     except Exception as e:
         print(f"[ERR] akshare 抓数失败: {e}")
@@ -391,6 +491,15 @@ def mock_data(date: datetime) -> dict:
         {"name": "银行", "realName": "银行", "chg": 0.15},
         {"name": "消费", "realName": "消费", "chg": -0.5},
     ]
+    # v3.0: mock 默认值（按指数涨跌情况推导合理假值）
+    sh = s["sh_chg_pct"]
+    s.setdefault("north_flow_yi", round(sh * 30 + 10, 1))      # 北向净额: 涨多流入
+    s.setdefault("main_net_flow_yi", round(sh * 50 + 20, 1))   # 主力净额: 涨多流入
+    s.setdefault("vol_yi", round(6000 + sh * 1500, 1))          # 成交额: 涨多放量
+    s.setdefault("pe_300", round(15 - sh * 3, 1))                # PE: 涨多=PE高
+    s.setdefault("pe_pct", int(50 + sh * 12))                    # 分位数: 涨多分位高
+    s.setdefault("margin_chg_yi", round(sh * 15, 1))             # 两融: 涨多加杠杆
+    s.setdefault("up_ratio_chg", round(sh * 0.03, 4))            # 涨跌比变: 涨多改善
     return s
 
 
@@ -529,6 +638,16 @@ def _gen_master_view(mid: str, raw: dict, grade: str, seed: int) -> dict:
     total = max(up_c + down_c, 1)
     up_ratio = up_c / total
 
+    # v3.0 L1+L2: 大师专属异构特征（打破 sh_chg_pct 同质化）
+    north_yi = raw.get("north_flow_yi", 0)           # 北向净额(亿) — 蔡金
+    main_yi = raw.get("main_net_flow_yi", 0)          # 主力净额(亿) — 蔡金
+    vol_yi = raw.get("vol_yi", raw.get("volume_yi", 0))  # 沪市成交额(亿) — 奥尼尔
+    pe_300 = raw.get("pe_300", 0)                     # 沪深300 PE — 格雷厄姆
+    pe_pct = raw.get("pe_pct", 50)                    # PE 历史分位数(%) — 格雷厄姆
+    margin_chg = raw.get("margin_chg_yi", 0)          # 融资余额变化(亿) — 蔡金(L2)
+    hot_bull_count = sum(1 for s in raw.get("hot_sectors", []) if s.get("chg", 0) > 3)  # 强势板块数 — 短线客
+    up_ratio_chg = raw.get("up_ratio_chg", 0)         # 涨跌比变化(今日 vs 昨日) — 西蒙斯
+
     def fmt_verdict(v):
         """BUY/HOLD/SELL → verdict + verdictCls"""
         mapping = {"BUY": ("BUY", "buy"), "HOLD": ("HOLD", "hold"), "SELL": ("SELL", "sell")}
@@ -539,100 +658,129 @@ def _gen_master_view(mid: str, raw: dict, grade: str, seed: int) -> dict:
 
     # ---- 每位大师的独立分析逻辑 ----
     if mid == "trend":
-        # 奥尼尔：CAN SLIM — 当前季盈利+年线+量价配合
-        if sh >= 1.0 and em >= 60:
+        # 奥尼尔：CAN SLIM — v3.0: 用真实成交量(vol_yi)替代情绪指数做量价确认
+        vol_bull = vol_yi > 8000  # 沪市成交额>8000亿视为放量
+        vol_strong = vol_yi > 11000
+        vol_desc = f"放量({vol_yi:.0f}亿)" if vol_bull else f"缩量({vol_yi:.0f}亿)" if vol_yi > 3000 else ""
+        if sh >= 1.0 and vol_bull:
             ver = "BUY"
-            txt = f"大盘放量突破！沪指涨{sh:+.2f}%，上涨{up_c}家，典型右侧信号。{pick_str}领涨，量价齐升符合CAN SLIM的'N'(New Highs)和'L'(Leader)条件。关注龙头股是否创近期新高。"
+            vol_extra = f"成交额{vol_yi:.0f}亿，" + ("大幅放量！" if vol_strong else "放量配合。")
+            txt = f"{vol_extra}沪指涨{sh:+.2f}%，上涨{up_c}家，典型的'量价齐升'右侧信号。{pick_str}领涨，CAN SLIM的N(New Highs)条件满足。"
             tac = "顺势加仓至7成，聚焦领涨板块龙头，设止损于5日线"
-            metrics = f"沪指涨幅:{sh:+.2f}% | 涨跌比:{up_c}:{down_c} | 领涨:{pick_str}"
-            logic = "CAN SLIM体系→Current quarterly earnings↑ + Annual earnings↑ + New highs + Leader + Institutional sponsorship"
-            checklist = ["确认领涨板块龙头放量创新高", "检查个股相对强度(RS)排名前20%", "止损位设在5日均线"]
-        elif sh >= 0.3:
+            metrics = f"沪指:{sh:+.2f}% | 成交:{vol_yi:.0f}亿 | 领涨:{pick_str}"
+            logic = "CAN SLIM→成交量(volume)确认趋势强度; N=新高, L=龙头"
+            checklist = ["确认领涨龙头放量创新高", "成交额维持8000亿以上为健康", "止损位设在5日均线"]
+        elif sh >= 0.3 or vol_bull:
             ver = "HOLD"
-            txt = f"温和上行中，沪指{sh:+.2f}%，量能一般。{pick_str}有表现但不够强势。等待更明确的放量突破信号再入场。北向资金{north}，外资态度偏中性。"
-            tac = "维持5成仓位，等待放量突破再加仓"
-            metrics = f"沪指涨幅:{sh:+.2f}% | 情绪指数:{em} | 北向:{north}"
-            logic = "温和趋势→未达CAN SLIM放量突破阈值，观望为主"
-            checklist = ["观察成交额是否破万亿", "关注北向资金连续流向", "等待明确突破信号"]
+            vol_hint = f"但成交额仅{vol_yi:.0f}亿，量能不足以支撑真突破。" if not vol_bull and vol_yi > 0 else f"成交{vol_yi:.0f}亿，量能尚可。" if vol_bull else ""
+            txt = f"沪指{sh:+.2f}%，{vol_hint}{pick_str}有表现。等待放量突破(成交>8000亿)确认再入场。"
+            tac = "维持5成仓位，等成交量放大再行动"
+            metrics = f"沪指:{sh:+.2f}% | 成交:{vol_yi:.0f}亿 | 领涨:{pick_str}"
+            logic = "CAN SLIM→温和趋势需放量确认; 无量的上涨是虚火"
+            checklist = ["紧盯成交额是否突破8000亿", "北向资金连续流向", "不追高无量的上涨"]
         elif sh > -1.0:
             ver = "HOLD"
-            txt = f"横盘震荡格局，沪指{sh:+.2f}%，方向不明。{pick_str}和{avoid_str}分化明显。这种行情最容易消耗耐心，不建议频繁操作。"
+            vol_note = f"成交{vol_yi:.0f}亿" if vol_yi > 0 else ""
+            txt = f"横盘震荡，沪指{sh:+.2f}%，{vol_note}。{pick_str}和{avoid_str}分化，量能不足方向不明。不建议频繁操作。"
             tac = "轻仓试探(≤3成)，严格止损，等趋势明朗"
-            metrics = f"沪指振幅:{abs(sh):.2f}% | 涨跌家数比:{up_ratio:.0%} | 板块分化度:高"
-            logic = "震荡市→CAN SLIM要求明确的上升趋势，当前不符合"
-            checklist = ["控制仓位不超过3成", "只操作最强势个股", "不抄底弱势板块"]
+            metrics = f"沪指:{sh:+.2f}% | 成交:{vol_yi:.0f}亿 | 涨跌比:{up_ratio:.0%}"
+            logic = "震荡市→CAN SLIM要求放量突破才入场; 缩量横盘=不宜操作"
+            checklist = ["仓位不超过3成", "只操作最强势个股", "不抄底弱势板块"]
         else:
             ver = "SELL"
-            txt = f"下跌趋势确立！沪指{sh:+.2f}%，下跌{down_c}家占优，典型的C阶段(修正期)。不要试图接飞刀，等待市场企稳信号出现。"
+            vol_panic = f"成交{vol_yi:.0f}亿" + ("，恐慌抛售。" if vol_bull else "，阴跌无量。") if vol_yi > 0 else ""
+            txt = f"下跌趋势！沪指{sh:+.2f}%，下跌{down_c}家占优，{vol_panic}C阶段(修正期)，不接飞刀。"
             tac = "空仓或降至2成以下，现金为王"
-            metrics = f"沪指跌幅:{sh:+.2f}% | 下跌占比:{down_c/total:.0%} | 恐慌情绪:{100-em}"
-            logic = "CAN SLIM C-stage→Market correction, cut losses immediately"
-            checklist = ["立即减仓至2成以下", "不抄底任何看似便宜的股票", "等待至少3天不再创新低"]
+            metrics = f"沪指:{sh:+.2f}% | 成交:{vol_yi:.0f}亿 | 下跌占比:{down_c/total:.0%}"
+            logic = "CAN SLIM C-stage→放量下跌=恐慌出逃; 缩量下跌=无人接盘。都应回避。"
+            checklist = ["减仓至2成以下", "不抄底任何看似便宜的股票", "等连续3日不创新低+成交回暖"]
 
     elif mid == "fund":
-        # 蔡金：A/D线 + 主力筹码（[修复] 分离北向资金和主力资金）
-        net_north = float(north.replace("+", "").replace("亿", "")) if "亿" in north else 0
-        net_main = float(main_net.replace("+", "").replace("亿", "")) if isinstance(main_net, str) and "亿" in main_net else 0
-        # 综合判断：主力+北向双线共振才给 BUY，单线仅 HOLD
-        if net_north > 30 and net_main > 50 and sh >= 0:
+        # 蔡金：A/D线 + 主力筹码 + 两融（v3.0: 直接用数值，不再解析字符串）
+        net_north = north_yi if north_yi else 0      # 北向净额(亿)
+        net_main = main_yi if main_yi else 0           # 主力净额(亿)
+        net_margin = margin_chg if margin_chg else 0    # 两融变化(亿)
+        north_desc = f"+{net_north:.0f}亿" if net_north >= 0 else f"{net_north:.0f}亿"
+        main_desc = f"+{net_main:.0f}亿" if net_main >= 0 else f"{net_main:.0f}亿"
+        # v3.0: 三线共振（北向+主力+两融）才给 BUY，双线 HOLD，单线 SELL
+        triple = (1 if net_north > 30 else 0) + (1 if net_main > 50 else 0) + (1 if net_margin > 20 else 0)
+        if triple >= 2 and net_main > 30:
             ver = "BUY"
-            txt = f"资金面双线共振确认！北向净流入{north}（外资加仓），全市场主力净流入{main_net}（机构真金白银进场）。{pick_str}获大单青睐，A/D线向上发散——机构建仓典型特征。"
+            txt = f"资金面{'三' if triple>=3 else '双'}线共振！北向{north_desc}，主力{main_desc}" + (
+                f"，两融+{net_margin:.0f}亿" if net_margin > 20 else "") + f"。A/D线实质性向上——这不是护盘是真金白银建仓。{pick_str}获机构加配。"
             tac = "跟庄操作，逢低吸纳资金共振板块"
-            metrics = f"北向:{north} | 主力:{main_net} | 共振:OK | 评分:A"
-            logic = "蔡金A/D线→北向+主力双线同向=Smart Money确认; 价格与A/D线同步新高=真实买盘"
-            checklist = ["跟踪北向连续3日以上净流入板块", "关注主力持仓集中度上升个股", "若主力与北向背离则立即降仓"]
+            metrics = f"北向:{north_desc} | 主力:{main_desc} | 两融:{'+' if net_margin>=0 else ''}{net_margin:.0f}亿 | 共振:{triple}/3"
+            logic = ("蔡金A/D线→北向+主力+两融三线共振=Smart Money一致性确认" if triple>=3 else
+                     "蔡金A/D线→双线共振=资金面偏多但未达最强信号")
+            checklist = ["跟踪北向连续3日净流入趋势", "关注两融余额是否持续回升", "任一线转负则减仓"]
         elif net_north > 10 or net_main > 20:
             ver = "HOLD"
-            txt = f"资金面偏暖但未形成共振。北向{north}，主力{main_net}。{'单一信号偏多但力度不足' if not (net_north > 10 and net_main > 20) else '两线同向但未达共振阈值'}。{pick_str}有资金关注但不够集中。"
-            tac = "保持现有仓位，等资金共振信号再加仓"
-            metrics = f"北向:{north} | 主力:{main_net} | 共振:弱 | 评分:B+"
-            logic = "A/D线横向整理→需北向+主力双线共振才可积极操作"
-            checklist = ["密切监控北向分时流向", "注意尾盘主力异动", "任一流向转负则减仓"]
-        elif net_north > -20 and net_main > -30:
+            txt = f"资金面温和偏暖但未形成共振。北向{north_desc}，主力{main_desc}。" + (
+                f"两融{'+' if net_margin>=0 else ''}{net_margin:.0f}亿，杠杆资金观望。" if abs(net_margin)<20 else
+                f"两融变化{net_margin:+.0f}亿，有所行动。") + f"{pick_str}有资金关注但不够集中。"
+            tac = "维持现有仓位，等资金共振信号再加仓"
+            metrics = f"北向:{north_desc} | 主力:{main_desc} | 共振:弱 | 评分:B"
+            logic = "A/D线横向整理→需三线共振才可积极操作"
+            checklist = ["监控北向盘中流向", "注意尾盘主力异动", "观察两融余额连续变化趋势"]
+        elif net_north > -20:
             ver = "HOLD"
-            txt = f"资金面中性偏弱。北向{north}，主力{main_net}。多空力量平衡中无明确方向，{avoid_str}资金面承压但不至于恐慌。观望为主。"
+            txt = f"资金面弱势但未到恐慌。北向{north_desc}，主力{main_desc}。{avoid_str}资金承压但整体可控。观望为主，不急于操作。"
             tac = "减仓至4成，回避资金持续流出板块"
-            metrics = f"北向:{north} | 主力:{main_net} | 共振:无 | 评分:C"
+            metrics = f"北向:{north_desc} | 主力:{main_desc} | 评分:C"
             logic = "A/D线走平→多空平衡; 不宜激进也不必恐慌"
             checklist = ["减少流出板块仓位", "保留逆势流入标的", "设置动态止盈止损"]
         else:
             ver = "SELL"
-            txt = f"资金面严重恶化！北向{north}，主力大规模撤离{main_net}。A/D线与价格同步向下——这不是洗盘是真出货。{avoid_str}是重灾区。"
+            txt = f"资金面严重恶化！北向{north_desc}，主力大规模撤离{main_desc}。" + (
+                f"两融{net_margin:+.0f}亿，杠杆资金也在撤退。" if net_margin < -10 else "") + f"A/D线与价格同步向下——这不是洗盘是真出货。{avoid_str}是重灾区。"
             tac = "全面减仓，现金比例不低于7成"
-            metrics = f"北向:{north} | 主力:{main_net} | 共振:双杀 | 评分:D"
-            logic = "A/D线与价格同步下行→真出货信号; 北向+主力同时撤离=系统性风险"
+            metrics = f"北向:{north_desc} | 主力:{main_desc} | 共振:全面撤离 | 评分:D"
+            logic = "A/D线与价格同步下行→真出货; 三线全负=系统性风险"
+            checklist = ["立即将仓位降至3成以下", "清仓资金持续流出板块", "保留现金等待A/D线企稳"]
 
     elif mid == "value":
-        # 格雷厄姆：安全边际 + 估值
-        pe_proxy = 15 + sh * 2  # 粗略PE代理值
-        if sh <= -1.5 and em <= 35:
-            ver = "BUY"
-            txt = f"恐慌创造了机会！沪指{sh:+.2f}%，情绪指数仅{em}(极度恐惧)。这正是格雷厄姆所说的'市场报价是你服务的不是你主宰的'时刻。大量优质资产被打折甩卖，安全边际显著增厚。"
-            tac = "开始分批建仓优质蓝筹，越跌越买"
-            metrics = f"市场恐慌度:{100-em}/100 | 安全边际:厚 | 估值吸引力:极高"
-            logic = "格雷厄姆价值投资→Mr.Market报价偏离内在价值时买入; 恐惧程度越高=折扣越大=安全边际越厚"
-            checklist = ["筛选PE<行业均值且ROE>15%的标的", "分3批建仓每批间隔5%跌幅", "单一标的仓位不超总资金10%"]
-        elif sh < 0 and em < 50:
-            ver = "BUY"
-            txt = f"市场给出了合理的折扣。沪指{sh:+.2f}%，虽然不算极端恐慌，但部分板块已经出现了价值洼地。{pick_str}中有基本面扎实的公司被错杀。"
-            tac = "精选被错杀的优质标的，小仓位试探"
-            metrics = f"估值折扣:中等 | 安全边际:适中 | 情绪指数:{em}"
-            logic = "价值投资→寻找市场价格低于内在价值的标的; 当前折扣提供了不错的入场点"
-            checklist = ["用DCF或PE估值法筛选低估标的", "关注分红率>3%的高股息股", "建仓后持有周期≥6个月"]
-        elif abs(sh) < 1.0:
+        # 格雷厄姆：安全边际 + 真实估值（v3.0: 用沪深300 PE + 分位数替代假PE）
+        has_real_pe = pe_300 > 0
+        pe_val = pe_300 if has_real_pe else (15 + sh * 2)  # 真PE优先，降级假PE
+        pe_label = f"沪深300 PE={pe_300:.1f}(分位数{pe_pct:.0f}%)" if has_real_pe else f"估算PE≈{pe_val:.0f}"
+        cheap = has_real_pe and pe_pct < 25
+        moderately_cheap = has_real_pe and pe_pct < 45
+        expensive = has_real_pe and pe_pct > 75
+        if not has_real_pe:
             ver = "HOLD"
-            txt = f"当前价格处于合理区间，既没有明显的安全边际也不算贵。沪指{sh:+.2f}%，大部分股票定价合理。这种时候最好的策略是耐心等待——好球总会来的。"
-            tac = "耐心持币等待更好的击球点"
-            metrics = f"估值水平:合理 | 安全边际:薄 | 建议:等待"
-            logic = "格雷厄姆→只在有明显安全边际时行动; 合理价格=既不值得买也不值得卖"
-            checklist = ["建立观察名单，记录目标价位", "定期更新估值模型", "预留40%+现金等待机会"]
-        else:
+            txt = "估值数据暂不可用，价值派本日弃权。缺少真实PE/PB分位时，不能用指数单日涨跌代替安全边际。"
+            tac = "等待真实估值数据恢复，不依据短期价格波动做价值判断"
+            metrics = "PE:缺失 | 安全边际:不可判定 | 数据质量:不足"
+            logic = "价值模型数据门控→真实估值缺失时弃权，避免用价格结果反推估值"
+            checklist = ["检查沪深300估值数据源", "补充PB与股息率历史分位", "数据恢复前保持中性"]
+        elif cheap:
+            ver = "BUY"
+            txt = f"安全边际极其充足！{pe_label}，估值处于历史底部区域。格雷厄姆说'市场报价是为你服务的'——当前折扣力度是捡黄金的时刻。优质资产被恐慌抛售给了我们绝佳的入场窗口。"
+            tac = "分批建仓优质蓝筹，越跌越买"
+            metrics = f"PE:{pe_val:.1f} | 分位:{pe_pct:.0f}% | 安全边际:极厚 | 极度低估"
+            logic = "格雷厄姆→PE分位数<25%=低估区间; 安全边际来自价格远低于内在价值"
+            checklist = ["筛选PE<行业均值且ROE>15%的标的", "分3批建仓每批间隔5%跌幅", "单一标的仓位不超总资金10%"]
+        elif moderately_cheap:
+            ver = "BUY"
+            txt = f"市场给出了合理的折扣。{pe_label}，部分板块已经出现了价值洼地。{pick_str}中有基本面扎实的公司被错杀，可以精选入场。"
+            tac = "精选被错杀的优质标的，小仓位试探"
+            metrics = f"PE:{pe_val:.1f} | 分位:{pe_pct:.0f}% | 安全边际:适中 | 适度低估"
+            logic = "格雷厄姆→PE分位数<45%=有安全边际; 精选个股优于择时"
+            checklist = ["用PE/PB/股息率三维筛选低估标的", "关注分红率>3%的高股息股", "建仓后持有周期≥6个月"]
+        elif expensive:
             ver = "SELL"
-            txt = f"市场已经不便宜了！沪指{sh:+.2f}%，情绪指数{em}(贪婪区间)。{pick_str}的估值可能已经透支了未来几年的增长。记住：牛市中最大的风险就是付出过高的价格。"
+            txt = f"市场已经没那么便宜了。{pe_label}，估值分位数偏高，安全边际正在消失。记住格雷厄姆的警告：牛市中最大的风险就是付出过高的价格。"
             tac = "逐步获利了结，将利润落袋为安"
-            metrics = f"估值水平:偏高 | 泡沫信号:⚠️ | 情绪指数:{em}"
-            logic = "格雷厄姆→牛市后期价格远超内在价值时应卖出; 贪婪时别人贪婪我恐惧"
+            metrics = f"PE:{pe_val:.1f} | 分位:{pe_pct:.0f}% | 估值偏高 | 逐步止盈"
+            logic = "格雷厄姆→PE分位数>75%=高估; 别人贪婪时卖出"
             checklist = ["对盈利>50%的仓位分批止盈", "降低股票仓位至50%以下", "锁定核心持仓成本"]
+        else:
+            ver = "HOLD"
+            txt = f"估值处于合理区间，没有明显的安全边际。{pe_label}。最好的策略是耐心等待——好球总会来的。做足功课但不必急于出手。"
+            tac = "耐心持币等待更好的击球点"
+            metrics = f"PE:{pe_val:.1f} | 分位:{pe_pct:.0f}% | 估值合理 | 持币等待"
+            logic = "格雷厄姆→只在有明显安全边际时行动; 合理估值=花时间研究而非交易"
+            checklist = ["建立观察名单，记录目标价位", "定期更新估值模型", "预留40%+现金等待机会"]
 
     elif mid == "cycle":
         # 霍华德·马克斯：周期钟摆
@@ -667,21 +815,23 @@ def _gen_master_view(mid: str, raw: dict, grade: str, seed: int) -> dict:
             checklist = ["系统性地降低权益仓位", "增加防御性资产配置", "准备好在真正崩盘后接货"]
 
     elif mid == "spec":
-        # 短线客：龙头战法 + 热点轮动
+        # 短线客：龙头战法 + 热点轮动（v3.0: 加入 hot_bull_count 判断市场热度）
         top_sector_chg = raw.get("sector_pick_detail", [{}])[0].get("chgRaw", 0) if raw.get("sector_pick_detail") else 0
-        if top_sector_chg >= 3.0 and em >= 55:
+        hot_fire = hot_bull_count >= 3  # 至少3个板块涨超3%=真赚钱效应
+        if top_sector_chg >= 3.0 and hot_fire:
             ver = "BUY"
-            txt = f"兄弟们看好了！{pick[0] if pick else '主线'}暴涨{top_sector_chg:+.2f}%！这就是龙头战法的教科书级案例。涨停板打开前赶紧上车，晚了连汤都没得喝。今天这波必须吃满！"
-            tac = f"全仓干{pick[0]}龙头，打板或半路追涨"
-            metrics = f"最强板块:{pick[0] if pick else '—'}({top_sector_chg:+.2f}%) | 连板效应:强 | 封板率:高"
-            logic = "龙头战法→板块爆发时第一时间切入最强标的; 追涨杀跌不是贬义词是生存技能"
+            heat_desc = f"全市场{hot_bull_count}个板块涨超3%，这可不是一日游！"
+            txt = f"兄弟们看好了！{pick[0] if pick else '主线'}暴涨{top_sector_chg:+.2f}%！{heat_desc}这就是龙头战法的教科书级案例——板块共振、连板梯队完整。涨停板打开前赶紧上车！"
+            tac = f"重仓{pick[0]}龙头，打板或半路追涨"
+            metrics = f"龙头:{pick[0]}({top_sector_chg:+.2f}%) | 强势板块:{hot_bull_count}个 | 封板率:高"
+            logic = "龙头战法→板块爆发+多板块共振=真赚钱效应; 追涨是正确的"
             checklist = [f"开盘竞价直接上{pick[0]}龙头", "设-3%硬止损绝不犹豫", "封板则持有看连板"]
-        elif top_sector_chg >= 1.0:
+        elif top_sector_chg >= 1.0 or hot_bull_count >= 2:
             ver = "HOLD"
-            txt = f"市场有热度但还不够炸裂。{pick_str}有动作但没有形成绝对主线。短线客的规矩：没看到明确的赚钱效应之前不要乱冲。管住手才是真本事。"
+            txt = f"市场有热度但还不够炸裂。{pick_str}有动作，{hot_bull_count}个板块涨超3%。没有形成绝对主线之前不要乱冲——管住手才是真本事。"
             tac = "轻仓试错(≤2成)，只做最强板"
-            metrics = f"活跃板块:{pick_str} | 强度:中等 | 打板意愿:一般"
-            logic = "短线交易→只参与有明确赚钱效应的行情; 宁可错过不可做错"
+            metrics = f"活跃板块:{pick_str} | 强势数:{hot_bull_count} | 打板意愿:一般"
+            logic = "短线交易→赚钱效应不够极致时不值得重仓; 宁可错过不可做错"
             checklist = ["观察是否有板块走出3连板", "只做换手充分的龙头首板", "严格执行T+1日内止损规则"]
         elif sh >= -0.5:
             ver = "HOLD"
@@ -699,39 +849,42 @@ def _gen_master_view(mid: str, raw: dict, grade: str, seed: int) -> dict:
             checklist = ["开盘如有反弹全部清掉", "今日不开任何新仓", "复盘今日杀跌板块列入黑名单"]
 
     elif mid == "quant":
-        # 西蒙斯：量化多因子
-        momentum_factor = sh  # 动量因子
-        vol_factor = up_ratio   # 波动因子(用涨跌比代理)
-        sentiment_factor = em / 100  # 情绪因子归一化
-        composite_score = momentum_factor * 0.3 + (vol_factor - 0.5) * 20 + (sentiment_factor - 0.5) * 10
+        # 西蒙斯：量化多因子（v3.0: 加入涨跌比变化率+流动性+波动率惩罚）
+        momentum_factor = sh * 0.4 + up_ratio_chg * 8  # 价格趋势 + 涨跌比动量
+        breadth_factor = hot_bull_count / 8  # 市场宽度(强势板块占比)
+        liquidity_factor = min(vol_yi / 12000, 1.5) if vol_yi > 0 else 1.0
+        vol_penalty = min(abs(sh) * 0.3, 0.5)
+        composite_score = (momentum_factor * 0.35 + breadth_factor * 8 * 0.25 +
+                           liquidity_factor * 0.20 + (1 - vol_penalty) * 0.20) * 2
+        chg_note = f"涨跌比变化{up_ratio_chg:+.1%}" if abs(up_ratio_chg) > 0.005 else "涨跌比稳定"
         if composite_score > 2.0:
             ver = "BUY"
-            txt = f"多因子模型综合得分{composite_score:+.1f}，强烈看多信号。动量因子{momentum_factor:+.2f}为正，市场宽度因子{vol_factor:.0%}偏多，情绪因子{sentiment_factor:.2f}处于升温通道。统计套利策略显示正向alpha机会。"
+            txt = f"多因子模型得分{composite_score:+.1f}，强看多。动量{momentum_factor:+.2f}，{chg_note}，宽度{breadth_factor:.0%}，流动性{liquidity_factor:.1f}x。因子共振=高置信度。"
             tac = "按模型权重配置多因子组合，beta暴露60%"
-            metrics = f"综合得分:{composite_score:+.1f} | 动量:{momentum_factor:+.2f} | 宽度:{vol_factor:.0%} | 情绪:{sentiment_factor:.2f}"
-            logic = "多因子模型→Momentum(0.3)+MarketWidth(0.3)+Sentiment(0.2)+Liquidity(0.2); 综合得分>2为强买入区"
+            metrics = f"得分:{composite_score:+.1f} | 动量:{momentum_factor:+.2f} | 宽度:{breadth_factor:.0%} | 流动:{liquidity_factor:.1f}x"
+            logic = "多因子→Momentum(35%)+Breadth(25%)+Liquidity(20%)+VolPenalty(20%)>2=强买入"
             checklist = ["执行模型推荐的多头组合", "监控因子衰减情况(日频)", "风险预算VaR控制在5%以内"]
-        elif composite_score > 0:
+        elif composite_score > 0.5:
             ver = "HOLD"
-            txt = f"多因子综合得分{composite_score:+.1f}，微弱正面信号。各因子方向不完全一致：动量{momentum_factor:+.2f}，宽度{vol_factor:.0%}。模型建议维持现有敞口不变，等待信号强化。"
+            txt = f"多因子得分{composite_score:+.1f}，微弱正面。动量{momentum_factor:+.2f}，{chg_note}。信号噪声比偏低，模型建议维持敞口不变。"
             tac = "维持现有组合权重，不主动调仓"
-            metrics = f"综合得分:{composite_score:+.1f} | 因子一致性:弱 | 信号噪声比:低"
+            metrics = f"得分:{composite_score:+.1f} | 因子一致性:弱 | 信噪比:低"
             logic = "量化风控→信号强度不足时不做方向性调整; 避免过度拟合短期波动"
-            checklist = ["保持现有组合不变", "每日更新因子值并记录", "若连续3日信号反转则考虑调仓"]
-        elif composite_score > -2.0:
+            checklist = ["保持现有组合不变", "每日更新因子值并记录", "连续3日反转则调仓"]
+        elif composite_score > -1.5:
             ver = "HOLD"
-            txt = f"多因子综合得分{composite_score:+.1f}，微弱负面信号。动量和情绪因子偏弱但未触发止损阈值。统计上看这种环境超额收益机会稀疏，建议降低换手频率。"
-            tac = "轻微降低beta至40%，增加对冲"
-            metrics = f"综合得分:{composite_score:+.1f} | 因子方向:混合 | 建议对冲:部分"
-            logic = "量化中性→微弱负面信号下采用市场中性策略; 降低方向性暴露"
-            checklist = ["增加股指期货对冲比例至30%", "提高现金比例至20%", "寻找市场中性的配对交易机会"]
+            txt = f"多因子得分{composite_score:+.1f}，微弱负面。动量{momentum_factor:+.2f}，{chg_note}。统计上超额收益稀疏，降低换手率。"
+            tac = "降低beta至40%，增加对冲"
+            metrics = f"得分:{composite_score:+.1f} | 因子方向:混合 | 建议:部分对冲"
+            logic = "量化中性→微弱负面信号采用市场中性策略; 降低方向性暴露"
+            checklist = ["增加对冲比例至30%", "提高现金至20%", "寻找配对交易机会"]
         else:
             ver = "SELL"
-            txt = f"多因子综合得分{composite_score:+.1f}，强烈看空信号！所有主要因子一致指向负面：动量{momentum_factor:+.2f}，宽度{vol_factor:.0%}，情绪{sentiment_factor:.2f}。模型置信度95%+，建议大幅降低风险敞口。"
-            tac = "beta降至20%以下，增加空头对冲"
-            metrics = f"综合得分:{composite_score:+.1f} | 因子一致性:极强 | VaR预警:红色"
-            logic = "多因子风控→所有主要因子共振向下时系统性风险极高; 必须大幅降低方向性暴露"
-            checklist = ["将权益beta迅速降至20%以下", "增加股指期货空单对冲", "暂停一切多头策略"]
+            txt = f"多因子得分{composite_score:+.1f}，强烈看空。动量崩溃{momentum_factor:+.2f}，{chg_note}，宽度{breadth_factor:.0%}极低。全部因子一致向下——量化触发全面防御。"
+            tac = "全面减仓至30%以下，开启对冲模式"
+            metrics = f"得分:{composite_score:+.1f} | 因子一致性:极强 | VaR预警:🔴"
+            logic = "多因子风控→所有主要因子共振向下=系统性风险极高"
+            checklist = ["立即减仓至30%以下", "股指对冲比例提至50%+", "暂停所有主动多头策略"]
 
     elif mid == "behavior":
         # 卡尼曼：行为金融 + 认知偏差
@@ -821,6 +974,40 @@ def _gen_master_view(mid: str, raw: dict, grade: str, seed: int) -> dict:
 
     v, vc = fmt_verdict(ver)
 
+    # V2: 置信度来自大师专属证据完整度，不再由所有大师共享的单日涨跌决定。
+    abs_sh = abs(sh)
+    evidence_quality = {
+        "trend": 0.75 if vol_yi > 0 and total > 1000 else 0.35,
+        "fund": min(0.9, 0.3 + 0.2 * sum([
+            abs(north_yi) > 0, abs(main_yi) > 0, abs(margin_chg) > 0,
+        ])),
+        "value": 0.8 if pe_300 > 0 else 0.3,
+        "cycle": 0.45,  # 当前周期模型仍缺少长周期价格路径，只给中低置信度
+        "spec": 0.75 if raw.get("sector_pick_detail") else 0.35,
+        "quant": 0.8 if vol_yi > 0 and total > 1000 else 0.4,
+        "behavior": 0.7 if total > 1000 else 0.4,
+        "retail": 0.65 if total > 1000 else 0.4,
+    }.get(mid, 0.4)
+    direction_strength = min(abs_sh / 3.0, 1.0)
+    confidence = min(0.9, max(0.3, 0.75 * evidence_quality + 0.25 * direction_strength))
+    if mid == "value" and pe_300 <= 0:
+        confidence = min(confidence, 0.35)
+    if mid == "fund" and not any((abs(north_yi) > 0, abs(main_yi) > 0, abs(margin_chg) > 0)):
+        confidence = min(confidence, 0.35)
+
+    # 概率随证据质量收缩：低质量数据不会输出伪高置信概率。
+    top_probability = 0.42 + 0.38 * confidence
+    remainder = 1.0 - top_probability
+    if v == "BUY":
+        scores = {"buy": top_probability, "sell": remainder * 0.35, "hold": remainder * 0.65}
+    elif v == "SELL":
+        scores = {"buy": remainder * 0.35, "sell": top_probability, "hold": remainder * 0.65}
+    else:  # HOLD
+        scores = {"buy": remainder / 2, "sell": remainder / 2, "hold": top_probability}
+    # 归一化到 0-1
+    s_sum = max(scores["buy"] + scores["sell"] + scores["hold"], 0.01)
+    scores = {k: round(v / s_sum, 3) for k, v in scores.items()}
+
     definition = next((m for m in MASTERS_DEF if m["id"] == mid), None)
     result = {
         "id": mid,
@@ -838,6 +1025,8 @@ def _gen_master_view(mid: str, raw: dict, grade: str, seed: int) -> dict:
             "logic": logic,
             "history": f"近5日参考: 沪指{'大涨' if sh > 1.5 else '上涨' if sh > 0 else '下跌' if sh > -1.5 else '大跌'}{abs(sh):.1f}%, 情绪{retail_sentiment if mid == 'retail' else ('贪婪' if em > 60 else '中性' if em > 40 else '恐惧')}",
             "checklist": checklist,
+            "scores": scores,
+            "confidence": round(confidence, 2),
         },
     }
     # 付费大师额外字段
@@ -894,6 +1083,41 @@ def build_sign(date: datetime, raw: dict, source: str, is_holiday: bool, holiday
 
     masters = build_masters(raw, grade)
 
+    # v2.4: Oracle 仲裁 — 用回测权重加权 8 大师 → 统一信号 + 签文微调
+    oracle_result = None
+    sign_adjustment = None
+    try:
+        from sign_oracle import Oracle, WeightStore, SignAdjuster
+        weights = WeightStore.load()
+        oracle = Oracle(weights)
+        oracle_signal = oracle.analyze(masters["list"])
+        # 签文微调（EMA 平滑 + 3 天连续确认）
+        sign_adjustment = SignAdjuster.compute(
+            oracle_signal, grade,
+            ACTION_TEMPLATE[grade], RISK_TEMPLATE[grade]
+        )
+        # 如果 Oracle 建议调整等级，采用调整后的
+        if sign_adjustment.get("adjusted"):
+            adjusted_grade = sign_adjustment["grade"]
+            grade = adjusted_grade
+            poem = pick_poem(adjusted_grade, date)
+
+        oracle_result = {
+            "enabled": True,
+            "signal": oracle_signal,
+            "adjustment": sign_adjustment,
+            "weightVersion": WeightStore.status().get("version", 0),
+        }
+        print(f"[Oracle] {oracle_signal['direction']} 强度={oracle_signal['strength']:.0%} "
+              f"权重v{oracle_result['weightVersion']} | 调整: {'是' if sign_adjustment.get('adjusted') else '否'} "
+              f"| {sign_adjustment.get('reason', '')[:60]}")
+    except Exception as e:
+        print(f"[Oracle] 仲裁跳过: {e}")
+        oracle_result = {"enabled": False, "error": str(e)}
+
+    final_action = sign_adjustment["action"] if sign_adjustment and sign_adjustment.get("adjusted") else ACTION_TEMPLATE[grade]
+    final_risk = sign_adjustment["risk"] if sign_adjustment and sign_adjustment.get("adjusted") else RISK_TEMPLATE[grade]
+
     return {
         "date": date.strftime("%Y.%m.%d"),
         "stickNo": stick_no_for(date),
@@ -905,8 +1129,8 @@ def build_sign(date: datetime, raw: dict, source: str, is_holiday: bool, holiday
         "poemModern": poem["m"],
         "trend": trend,
         "mainLine": main_line,
-        "risk": RISK_TEMPLATE[grade],
-        "action": ACTION_TEMPLATE[grade],
+        "risk": final_risk,
+        "action": final_action,
         "expand": {
             "sectorPick": raw["sector_pick"],
             "sectorAvoid": raw["sector_avoid"],
@@ -922,8 +1146,20 @@ def build_sign(date: datetime, raw: dict, source: str, is_holiday: bool, holiday
             "shClose": raw.get("sh_close"),
             "shChgPct": raw["sh_chg_pct"],
             "hotSectors": raw.get("hot_sectors", []),
+            # V2 回测特征快照：保留预测当时可见的数据，供后续诊断和
+            # walk-forward 使用。不得在归档阶段回填未来数据。
+            "northFlowYi": raw.get("north_flow_yi"),
+            "mainNetFlowYi": raw.get("main_net_flow_yi"),
+            "volumeYi": raw.get("vol_yi", raw.get("volume_yi")),
+            "volumeRatio": raw.get("volume_ratio"),
+            "pe300": raw.get("pe_300"),
+            "pePct": raw.get("pe_pct"),
+            "marginChgYi": raw.get("margin_chg_yi"),
+            "upRatioChg": raw.get("up_ratio_chg"),
+            "dataQuality": raw.get("_data_quality", {}),
         },
         "masters": masters,
+        "oracle": oracle_result,
         "isHoliday": is_holiday,
         "holidayReason": holiday_reason if is_holiday else "",
         "dataSource": source,
@@ -967,38 +1203,25 @@ def main():
         else:
             holiday_reason = "节假日休市 · 财神也歇着"
 
-    # ===== 取数据 =====
+    # ===== 取数据（v3.2: data_pipeline 多层编排）=====
     raw = None
-    source = "akshare · 实时"
+    source = "mock · 兜底"
 
     if args.mock:
         raw = mock_data(today)
         source = "mock · 演示数据"
-    elif is_holiday:
-        # 休市：尝试复用最近一份归档的 raw
-        last = find_last_archive(out_dir)
-        if last and "expand" in last:
-            ex = last["expand"]
-            raw = {
-                "sh_chg_pct": ex.get("shChgPct", 0),
-                "sh_close": ex.get("shClose"),
-                "up_count": ex.get("upCount", 0),
-                "down_count": ex.get("downCount", 0),
-                "sector_pick": ex.get("sectorPick", []),
-                "sector_avoid": ex.get("sectorAvoid", []),
-                "sector_pick_detail": ex.get("sectorPickDetail", []),
-                "sector_avoid_detail": ex.get("sectorAvoidDetail", []),
-                "dark_horse": ex.get("darkHorse", "—"),
-                "north_flow": ex.get("northFlow", "—"),
-                "emotion": ex.get("emotion", 50),
-                "emotion_label": ex.get("emotionLabel", "中 性"),
-                "hot_sectors": ex.get("hotSectors", []),
-            }
-            source = f"holiday · 上一交易日 ({last.get('date', '')})"
-        else:
+    elif HAS_PIPELINE:
+        # v3.2: 数据编排管线自动处理多层降级 + 假日缓存
+        raw, source = pipeline_orchestrate(is_holiday)
+        if raw is None:
+            # Pipeline 全部失败：最后尝试 akshare
+            raw = fetch_real_data()
+            source = "akshare · 最后兜底" if raw else source
+        if raw is None:
             raw = mock_data(today)
-            source = "holiday · mock 兜底"
+            source = "mock · 全部数据源失败回退"
     else:
+        # 降级到旧方案
         raw = fetch_real_data()
         if raw is None:
             raw = mock_data(today)
@@ -1010,6 +1233,7 @@ def main():
     tmp_fd, tmp_path = tempfile.mkstemp(dir=str(out_dir), suffix=".json")
     with os.fdopen(tmp_fd, "w", encoding="utf-8") as f:
         json.dump(sign, f, ensure_ascii=False, indent=2)
+    os.chmod(tmp_path, 0o644)  # 保持 nginx/www-data 对原子替换后的签文文件可读
     shutil.move(tmp_path, str(out_path))
 
     # 历史归档（仅交易日）
@@ -1017,6 +1241,13 @@ def main():
         history = out_dir / f"sign-{today.strftime('%Y%m%d')}.json"
         with open(history, "w", encoding="utf-8") as f:
             json.dump(sign, f, ensure_ascii=False, indent=2)
+
+        # v2.4: 自动归档到 verdicts/ 目录供回测使用
+        try:
+            from backtest_tracker import archive_verdict
+            archive_verdict(today, sign)
+        except Exception as e:
+            print(f"[WARN] verdict 归档失败（不影响签文生成）: {e}")
 
     print(f"[OK] 已生成 {out_path}")
     print(f"     等级: {sign['gradeLabel']} · 沪指: {raw['sh_chg_pct']:+.2f}% · 来源: {source}")

@@ -1,0 +1,7 @@
+35 15 * * 1-5 cd /home/ubuntu/caiyunju/server-marketSign && /usr/bin/python3 generate_daily_sign.py >> /home/ubuntu/caiyunju/server-marketSign/cron.log 2>&1
+# ===== 财运局 v3.2 盘中快照 =====
+0 10 * * 1-5 /home/ubuntu/caiyunju/server-marketSign/intraday_snapshot.sh morning >> /home/ubuntu/caiyunju/server-marketSign/output/intraday_cron.log 2>&1
+30 11 * * 1-5 /home/ubuntu/caiyunju/server-marketSign/intraday_snapshot.sh noon >> /home/ubuntu/caiyunju/server-marketSign/output/intraday_cron.log 2>&1
+0 14 * * 1-5 /home/ubuntu/caiyunju/server-marketSign/intraday_snapshot.sh afternoon >> /home/ubuntu/caiyunju/server-marketSign/output/intraday_cron.log 2>&1
+# ===== 大师 V2 每周影子评估（不覆盖线上权重） =====
+0 2 * * 6 cd /home/ubuntu/caiyunju/server-marketSign && /usr/bin/python3 -B backtest_v2.py shadow-update --days 730 --min-train 20 >> /home/ubuntu/caiyunju/server-marketSign/cron.log 2>&1
